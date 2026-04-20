@@ -1,8 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-
 import 'core/locale_provider.dart';
 import 'l10n/app_localizations.dart';
 import 'theme/app_theme.dart';
@@ -17,12 +17,12 @@ import 'services/session_service.dart';
 import 'services/media_service.dart';
 import 'services/theme_service.dart';
 import 'services/venue_service.dart';
-
 final navigatorKey = GlobalKey<NavigatorState>();
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  if (!kIsWeb) {
+    await Firebase.initializeApp();
+  }
   runApp(
     MultiProvider(
       providers: [
@@ -40,17 +40,13 @@ void main() async {
     ),
   );
 }
-
 class PlayNowApp extends StatefulWidget {
   const PlayNowApp({super.key});
-
   @override
   State<PlayNowApp> createState() => _PlayNowAppState();
 }
-
 class _SplashScreen extends StatelessWidget {
   const _SplashScreen();
-
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
@@ -58,19 +54,16 @@ class _SplashScreen extends StatelessWidget {
     );
   }
 }
-
 class _PlayNowAppState extends State<PlayNowApp> {
   @override
   void initState() {
     super.initState();
-    NotificationService.initialize();
+    if (!kIsWeb) NotificationService.initialize();
   }
-
   @override
   Widget build(BuildContext context) {
     final locale    = context.watch<LocaleProvider>().locale;
     final themeMode = context.watch<ThemeService>().mode;
-
     return MaterialApp(
       navigatorKey: navigatorKey,
       scaffoldMessengerKey: NotificationService.messengerKey,
@@ -79,8 +72,6 @@ class _PlayNowAppState extends State<PlayNowApp> {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
-
-      // ── Localization ──────────────────────────────────────────────────────
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('ar')],
       localizationsDelegates: const [
@@ -89,7 +80,6 @@ class _PlayNowAppState extends State<PlayNowApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-
       home: Consumer<AuthService>(
         builder: (context, auth, _) {
           if (auth.isInitializing) return const _SplashScreen();
