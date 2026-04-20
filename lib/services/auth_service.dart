@@ -1,26 +1,22 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
 import '../models/auth_models.dart';
 import 'notification_service.dart';
 
-const _storage = FlutterSecureStorage(
-  aOptions: AndroidOptions(encryptedSharedPreferences: true),
-);
 const _tokenKey = 'jwt_token';
 
 class AuthService extends ChangeNotifier {
   AuthUser? _currentUser;
   bool _isInitializing = true;
-
   AuthUser? get currentUser => _currentUser;
   bool get isLoggedIn => _currentUser != null;
   bool get isInitializing => _isInitializing;
 
   Future<void> tryAutoLogin() async {
     try {
-      final token = await _storage.read(key: _tokenKey);
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(_tokenKey);
       if (token == null) return;
       apiClient.setToken(token);
       await fetchMe();
@@ -70,11 +66,7 @@ class AuthService extends ChangeNotifier {
     try {
       final data = await apiClient.post(
         '/auth/register',
-        body: RegisterRequest(
-          name: name,
-          email: email,
-          password: password,
-        ).toJson(),
+        body: RegisterRequest(name: name, email: email, password: password).toJson(),
       );
       await _saveToken(data['token']);
       await fetchMe();
@@ -102,10 +94,7 @@ class AuthService extends ChangeNotifier {
         '/auth/profile',
         body: UpdateProfileRequest(fullName: name, phone: phone).toJson(),
       );
-      _currentUser = _currentUser?.copyWith(
-        name: data['fullName'],
-        phone: data['phone'],
-      );
+      _currentUser = _currentUser?.copyWith(name: data['fullName'], phone: data['phone']);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
@@ -116,14 +105,16 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await _storage.delete(key: _tokenKey);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
     apiClient.setToken(null);
     _currentUser = null;
     notifyListeners();
   }
 
   Future<void> _saveToken(String token) async {
-    await _storage.write(key: _tokenKey, value: token);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token);
     apiClient.setToken(token);
   }
 }
