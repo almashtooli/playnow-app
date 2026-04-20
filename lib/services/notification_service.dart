@@ -1,12 +1,14 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 
-// Only import Firebase on non-web
-import 'package:firebase_core/firebase_core.dart'
-    if (dart.library.html) 'package:flutter/foundation.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'
-    if (dart.library.html) 'package:flutter/foundation.dart';
+@pragma('vm:entry-point')
+Future<void> _bgHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint('Background message: ${message.notification?.title}');
+}
 
 class NotificationService {
   static final GlobalKey<ScaffoldMessengerState> messengerKey =
@@ -14,17 +16,12 @@ class NotificationService {
 
   static Future<void> initialize() async {
     if (kIsWeb) return;
-    _initMobile();
-  }
-
-  static Future<void> _initMobile() async {
     FirebaseMessaging.onBackgroundMessage(_bgHandler);
     await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true);
     FirebaseMessaging.instance.onTokenRefresh.listen((_) => saveFcmToken());
     FirebaseMessaging.onMessage.listen((message) {
       final type = message.data['type'] as String? ?? '';
-      final isAr = _isArCached;
-      final translatedTitle = _translateType(type, isAr);
+      final translatedTitle = _translateType(type, _isArCached);
       final title = translatedTitle.isNotEmpty ? translatedTitle : (message.notification?.title ?? '');
       final body = message.notification?.body ?? '';
       messengerKey.currentState?.showSnackBar(
@@ -71,10 +68,4 @@ class NotificationService {
         'reschedule_rejected' => isAr ? 'تم رفض الوقت الجديد' : 'Reschedule Rejected',
         _ => '',
       };
-}
-
-@pragma('vm:entry-point')
-Future<void> _bgHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  debugPrint('Background message: ${message.notification?.title}');
 }
