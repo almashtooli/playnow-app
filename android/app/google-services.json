@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "472970229452",
+    "project_id": "playnow-f4883",
+    "storage_bucket": "playnow-f4883.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:472970229452:android:964b610f17bc3d9af47469",
+        "android_client_info": {
+          "package_name": "com.example.playnow_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYCI_LZBzOhkzUaepvgBlN-cCfN9NsA1o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
