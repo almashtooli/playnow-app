@@ -1,9 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/locale_provider.dart';
 import '../../l10n/app_localizations.dart';
@@ -24,8 +21,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _nameController  = TextEditingController();
   final _phoneController = TextEditingController();
 
-  String? _avatarBase64;
-  bool _saving = false;
+  bool _saving        = false;
+  bool _uploadingAvatar = false;
   String? _error;
   String? _success;
 
@@ -38,7 +35,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _nameController.text  = user.name;
         _phoneController.text = user.phone ?? '';
       }
-      _loadAvatar();
     });
   }
 
@@ -49,26 +45,105 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _loadAvatar() async {
-    final prefs = await SharedPreferences.getInstance();
-    final b64   = prefs.getString('user_avatar');
-    if (b64 != null && mounted) setState(() => _avatarBase64 = b64);
-  }
-
-  Future<void> _pickImage() async {
+  Future<void> _pickAndUpload() async {
     final picker = ImagePicker();
     final file   = await picker.pickImage(
       source:       ImageSource.gallery,
-      maxWidth:     512,
-      maxHeight:    512,
-      imageQuality: 75,
+      maxWidth:     1024,
+      maxHeight:    1024,
+      imageQuality: 85,
     );
-    if (file == null) return;
-    final bytes = await file.readAsBytes();
-    final b64   = base64Encode(bytes);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_avatar', b64);
-    if (mounted) setState(() => _avatarBase64 = b64);
+    if (file == null || !mounted) return;
+
+    setState(() => _uploadingAvatar = true);
+    final error = await context.read<AuthService>().uploadAvatar(file);
+    if (mounted) {
+      setState(() => _uploadingAvatar = false);
+      if (error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: context.errorColor),
+        );
+      }
+    }
+  }
+
+  void _showAvatarOptions(String avatarUrl) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: BoxDecoration(
+          color: context.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.fromLTRB(
+            24, 16, 24, 24 + MediaQuery.of(context).padding.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: context.borderColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Icon(Icons.fullscreen_rounded, color: context.primary),
+              title: const Text('Preview photo'),
+              onTap: () {
+                Navigator.pop(context);
+                _showPreview(avatarUrl);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.camera_alt_rounded, color: context.primary),
+              title: const Text('Change photo'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndUpload();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPreview(String url) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.broken_image, color: Colors.white, size: 80),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 8,
+                right: 16,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _saveChanges() async {
@@ -97,10 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
-    final auth  = context.read<AuthService>();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('user_avatar');
-    await auth.logout();
+    await context.read<AuthService>().logout();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -110,55 +182,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Build helpers
-  // ---------------------------------------------------------------------------
 
-  Widget _buildAvatar(String name) {
+  Widget _buildAvatar(String name, String? avatarUrl) {
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+
     return GestureDetector(
-      onTap: _pickImage,
+      onTap: hasAvatar ? () => _showAvatarOptions(avatarUrl) : _pickAndUpload,
       child: Stack(
         alignment: Alignment.center,
         children: [
           Container(
             width: 88, height: 88,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
+              shape:  BoxShape.circle,
               color:  context.greenTint,
               border: Border.all(color: context.greenBorder, width: 1.5),
             ),
-            child: _avatarBase64 != null
-                ? ClipOval(
-                    child: Image.memory(
-                      base64Decode(_avatarBase64!),
+            child: ClipOval(
+              child: hasAvatar
+                  ? Image.network(
+                      avatarUrl,
                       fit: BoxFit.cover,
                       width: 88, height: 88,
-                    ),
-                  )
-                : Center(
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        fontSize:   34,
-                        fontWeight: FontWeight.bold,
-                        color:      context.primary,
-                      ),
-                    ),
-                  ),
-          ),
-          Positioned(
-            bottom: 0, right: 0,
-            child: Container(
-              width: 26, height: 26,
-              decoration: BoxDecoration(
-                color:  context.surface,
-                shape:  BoxShape.circle,
-                border: Border.all(color: context.greenBorder, width: 1),
-              ),
-              child: Icon(Icons.camera_alt_rounded,
-                  color: context.primary, size: 14),
+                      errorBuilder: (_, __, ___) => _avatarLetter(name),
+                    )
+                  : _avatarLetter(name),
             ),
           ),
+          if (_uploadingAvatar)
+            Container(
+              width: 88, height: 88,
+              decoration: const BoxDecoration(
+                  shape: BoxShape.circle, color: Colors.black45),
+              child: const Center(
+                child: SizedBox(
+                  width: 28, height: 28,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2.5),
+                ),
+              ),
+            ),
+          if (!_uploadingAvatar)
+            Positioned(
+              bottom: 0, right: 0,
+              child: Container(
+                width: 26, height: 26,
+                decoration: BoxDecoration(
+                  color:  context.surface,
+                  shape:  BoxShape.circle,
+                  border: Border.all(color: context.greenBorder, width: 1),
+                ),
+                child: Icon(Icons.camera_alt_rounded,
+                    color: context.primary, size: 14),
+              ),
+            ),
         ],
+      ),
+    );
+  }
+
+  Widget _avatarLetter(String name) {
+    return Center(
+      child: Text(
+        name.isNotEmpty ? name[0].toUpperCase() : '?',
+        style: TextStyle(
+          fontSize: 34,
+          fontWeight: FontWeight.bold,
+          color: context.primary,
+        ),
       ),
     );
   }
@@ -175,8 +266,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Main build
   // ---------------------------------------------------------------------------
 
   @override
@@ -205,7 +294,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _card(
             child: Column(
               children: [
-                _buildAvatar(user.name),
+                _buildAvatar(user.name, user.avatarUrl),
                 const SizedBox(height: 12),
                 Text(
                   user.name.isNotEmpty ? user.name : l.noNameSet,
@@ -238,9 +327,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 6),
-                Text(l.tapAvatarToChange,
-                    style: TextStyle(
-                        color: context.textHint, fontSize: 11)),
+                Text(
+                  user.avatarUrl != null
+                      ? 'Tap photo to preview or change'
+                      : l.tapAvatarToChange,
+                  style: TextStyle(color: context.textHint, fontSize: 11),
+                ),
               ],
             ),
           ),
@@ -254,9 +346,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(l.editInfo,
                     style: TextStyle(
-                      color:      context.textSecondary,
-                      fontSize:   12,
-                      fontWeight: FontWeight.w600,
+                      color:         context.textSecondary,
+                      fontSize:      12,
+                      fontWeight:    FontWeight.w600,
                       letterSpacing: 0.4,
                     )),
                 const SizedBox(height: 14),
@@ -314,8 +406,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: Text(_success!,
                         style: TextStyle(
-                            color:      context.primary,
-                            fontSize:   13)),
+                            color: context.primary, fontSize: 13)),
                   ),
                 ],
 
@@ -343,9 +434,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(l.language,
                     style: TextStyle(
-                      color:      context.textSecondary,
-                      fontSize:   12,
-                      fontWeight: FontWeight.w600,
+                      color:         context.textSecondary,
+                      fontSize:      12,
+                      fontWeight:    FontWeight.w600,
                       letterSpacing: 0.4,
                     )),
                 const SizedBox(height: 12),

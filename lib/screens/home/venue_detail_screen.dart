@@ -11,6 +11,8 @@ import '../../services/session_service.dart';
 import '../../services/venue_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/empty_error_states.dart';
+import '../../widgets/football_field_picker.dart';
+import '../../widgets/seats_picker.dart';
 import '../../widgets/shimmer_widget.dart';
 import '../match_booking/book_match_screen.dart';
 import 'video_player_screen.dart';
@@ -210,14 +212,25 @@ class _VenueDetailScreenState extends State<VenueDetailScreen>
       return;
     }
 
+    // Step 1: pick seats
+    final seats = await showSeatsPicker(
+      context,
+      remainingSpots: session.remainingSpots,
+      pricePerPlayer: session.pricePerPlayer,
+    );
+    if (seats == null || !mounted) return;
+
+    // Step 2: pick position on the field
+    final position = await showPositionPicker(context);
+    if (position == null || !mounted) return;
+
+    // Step 3: confirm
+    final total = (seats * session.pricePerPlayer).toStringAsFixed(1);
     final confirmed = await UiHelpers.confirm(
       context,
       title: l.confirmBookingTitle,
-      message: l.reserveSpotConfirm(
-        session.pricePerPlayer.toStringAsFixed(1),
-        _formatDate(session.startsAt),
-        _formatTime(session.startsAt),
-      ),
+      message: '${l.reserveSpotConfirm(total, _formatDate(session.startsAt), _formatTime(session.startsAt))}'
+          '\nPosition: ${position.label} — ${position.fullName} (Team ${position.team})',
       confirmText: l.bookNow,
       confirmColor: context.primary,
     );
@@ -225,9 +238,13 @@ class _VenueDetailScreenState extends State<VenueDetailScreen>
 
     setState(() => _joiningSessionIds.add(session.id));
     try {
-      await context.read<SessionService>().joinSession(session.id);
+      await context.read<SessionService>().joinSession(
+        session.id,
+        seats: seats,
+        position: position.label,
+      );
       if (mounted) {
-        UiHelpers.showSuccess(context, AppLocalizations.of(context).spotReserved);
+        UiHelpers.showSuccess(context, l.spotReserved);
         _loadSessions(silent: true);
       }
     } on ApiException catch (e) {

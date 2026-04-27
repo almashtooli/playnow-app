@@ -11,17 +11,23 @@ class RegisterRequest {
   final String name;
   final String email;
   final String password;
+  final String? phone;
+  final String? birthDate;
 
   RegisterRequest({
     required this.name,
     required this.email,
     required this.password,
+    this.phone,
+    this.birthDate,
   });
 
   Map<String, dynamic> toJson() => {
-    'fullName': name, // backend column is full_name → expects fullName
+    'fullName': name,
     'email': email,
     'password': password,
+    if (phone != null && phone!.isNotEmpty) 'phone': phone,
+    if (birthDate != null) 'birthDate': birthDate,
   };
 }
 
@@ -50,6 +56,7 @@ class AuthUser {
   final String name;
   final String email;
   final String? phone;
+  final String? avatarUrl;
   final List<String> roles;
 
   AuthUser({
@@ -57,26 +64,29 @@ class AuthUser {
     required this.name,
     required this.email,
     this.phone,
+    this.avatarUrl,
     required this.roles,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     return AuthUser(
-      id: json['id'] ?? 0,
-      name: json['fullName'] ?? json['name'] ?? '',
-      email: json['email'] ?? '',
-      phone: json['phone'],
-      roles: List<String>.from(json['roles'] ?? []),
+      id:        json['id'] ?? 0,
+      name:      json['fullName'] ?? json['name'] ?? '',
+      email:     json['email'] ?? '',
+      phone:     json['phone'],
+      avatarUrl: json['avatarUrl'],
+      roles:     List<String>.from(json['roles'] ?? []),
     );
   }
 
-  AuthUser copyWith({String? name, String? phone}) {
+  AuthUser copyWith({String? name, String? phone, String? avatarUrl}) {
     return AuthUser(
-      id: id,
-      name: name ?? this.name,
-      email: email,
-      phone: phone ?? this.phone,
-      roles: roles,
+      id:        id,
+      name:      name ?? this.name,
+      email:     email,
+      phone:     phone ?? this.phone,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      roles:     roles,
     );
   }
 

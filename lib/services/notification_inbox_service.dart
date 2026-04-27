@@ -63,6 +63,17 @@ class NotificationInboxService extends ChangeNotifier {
     }
   }
 
+  Future<void> deleteNotification(int id) async {
+    try {
+      await apiClient.delete('/notifications/$id');
+    } catch (_) {
+      // best-effort — still remove locally even if API fails
+    }
+    _notifications.removeWhere((n) => n.id == id);
+    _unreadCount = _notifications.where((n) => !n.isRead).length;
+    notifyListeners();
+  }
+
   Future<void> markRead(int id) async {
     try {
       await apiClient.post('/notifications/$id/read');

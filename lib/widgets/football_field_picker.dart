@@ -1,40 +1,49 @@
 import 'package:flutter/material.dart';
 
-/// A position on the football field.
 class FieldPosition {
   final String label;
   final String fullName;
-  /// Normalized x (0 = left/GK goal, 1 = right/ST goal)
+  /// 'A' = left half (blue), 'B' = right half (red)
+  final String team;
+  /// Normalised x (0 = left goal, 1 = right goal)
   final double x;
-  /// Normalized y (0 = top, 1 = bottom)
+  /// Normalised y (0 = top touchline, 1 = bottom touchline)
   final double y;
 
   const FieldPosition({
     required this.label,
     required this.fullName,
+    required this.team,
     required this.x,
     required this.y,
   });
 }
 
-/// Standard football positions laid out on the field.
+// 6-a-side: 1-2-2-1 formation per team
 const List<FieldPosition> kFieldPositions = [
-  FieldPosition(label: 'GK',  fullName: 'Goalkeeper',         x: 0.07, y: 0.50),
-  FieldPosition(label: 'LB',  fullName: 'Left Back',           x: 0.23, y: 0.18),
-  FieldPosition(label: 'CB',  fullName: 'Center Back',         x: 0.23, y: 0.50),
-  FieldPosition(label: 'RB',  fullName: 'Right Back',          x: 0.23, y: 0.82),
-  FieldPosition(label: 'LM',  fullName: 'Left Midfielder',     x: 0.43, y: 0.20),
-  FieldPosition(label: 'CM',  fullName: 'Central Midfielder',  x: 0.50, y: 0.50),
-  FieldPosition(label: 'RM',  fullName: 'Right Midfielder',    x: 0.43, y: 0.80),
-  FieldPosition(label: 'LW',  fullName: 'Left Winger',         x: 0.68, y: 0.18),
-  FieldPosition(label: 'CF',  fullName: 'Center Forward',      x: 0.68, y: 0.50),
-  FieldPosition(label: 'RW',  fullName: 'Right Winger',        x: 0.68, y: 0.82),
-  FieldPosition(label: 'ST',  fullName: 'Striker',             x: 0.86, y: 0.35),
-  FieldPosition(label: 'ST',  fullName: 'Second Striker',      x: 0.86, y: 0.65),
+  // ── Team A (left half, attacks →) ──────────────────────────
+  FieldPosition(label: 'GK', fullName: 'Goalkeeper',      team: 'A', x: 0.06, y: 0.50),
+  FieldPosition(label: 'LB', fullName: 'Left Back',        team: 'A', x: 0.21, y: 0.25),
+  FieldPosition(label: 'RB', fullName: 'Right Back',       team: 'A', x: 0.21, y: 0.75),
+  FieldPosition(label: 'LM', fullName: 'Left Midfielder',  team: 'A', x: 0.36, y: 0.28),
+  FieldPosition(label: 'RM', fullName: 'Right Midfielder', team: 'A', x: 0.36, y: 0.72),
+  FieldPosition(label: 'ST', fullName: 'Striker',          team: 'A', x: 0.44, y: 0.50),
+
+  // ── Team B (right half, attacks ←) ─────────────────────────
+  FieldPosition(label: 'GK', fullName: 'Goalkeeper',      team: 'B', x: 0.94, y: 0.50),
+  FieldPosition(label: 'RB', fullName: 'Right Back',       team: 'B', x: 0.79, y: 0.25),
+  FieldPosition(label: 'LB', fullName: 'Left Back',        team: 'B', x: 0.79, y: 0.75),
+  FieldPosition(label: 'RM', fullName: 'Right Midfielder', team: 'B', x: 0.64, y: 0.28),
+  FieldPosition(label: 'LM', fullName: 'Left Midfielder',  team: 'B', x: 0.64, y: 0.72),
+  FieldPosition(label: 'ST', fullName: 'Striker',          team: 'B', x: 0.56, y: 0.50),
 ];
 
-/// Shows a football field where the user taps a position to select it.
-/// Returns the selected [FieldPosition] or null if dismissed.
+const _kTeamA = Color(0xFF1565C0); // blue
+const _kTeamB = Color(0xFFC62828); // red
+const _kSelected = Color(0xFF1DB954); // green
+
+/// Shows a football field with two teams (6 vs 6). Returns the selected
+/// [FieldPosition] or null if dismissed.
 Future<FieldPosition?> showPositionPicker(BuildContext context) {
   return showModalBottomSheet<FieldPosition>(
     context: context,
@@ -54,10 +63,12 @@ class _PositionPickerSheet extends StatefulWidget {
 class _PositionPickerSheetState extends State<_PositionPickerSheet> {
   FieldPosition? _selected;
 
-  static const _green = Color(0xFF1DB954);
-
   @override
   Widget build(BuildContext context) {
+    final selColor = _selected == null
+        ? Colors.white38
+        : (_selected!.team == 'A' ? _kTeamA : _kTeamB);
+
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF1A1A2E),
@@ -67,10 +78,9 @@ class _PositionPickerSheetState extends State<_PositionPickerSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle bar
+          // Handle
           Container(
-            width: 40,
-            height: 4,
+            width: 40, height: 4,
             decoration: BoxDecoration(
               color: Colors.white24,
               borderRadius: BorderRadius.circular(2),
@@ -81,25 +91,33 @@ class _PositionPickerSheetState extends State<_PositionPickerSheet> {
           // Title
           const Text(
             'Select Your Position',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
+
+          // Team legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _TeamBadge(color: _kTeamA, label: 'Team A'),
+              const SizedBox(width: 24),
+              _TeamBadge(color: _kTeamB, label: 'Team B'),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Selection hint / result
           Text(
             _selected == null
-                ? 'Tap a position on the field'
-                : '${_selected!.label} — ${_selected!.fullName}',
+                ? 'Tap a player to pick your position'
+                : 'Team ${_selected!.team}  ·  ${_selected!.label} — ${_selected!.fullName}',
             style: TextStyle(
-              color: _selected == null ? Colors.white38 : _green,
+              color: selColor,
               fontSize: 13,
-              fontWeight:
-                  _selected == null ? FontWeight.w400 : FontWeight.w700,
+              fontWeight: _selected == null ? FontWeight.w400 : FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Field
           AspectRatio(
@@ -109,27 +127,40 @@ class _PositionPickerSheetState extends State<_PositionPickerSheet> {
                 final w = constraints.maxWidth;
                 final h = constraints.maxHeight;
                 return GestureDetector(
-                  onTapUp: (details) => _handleTap(details.localPosition, w, h),
+                  onTapUp: (d) => _handleTap(d.localPosition, w, h),
                   child: CustomPaint(
                     painter: _FieldPainter(),
                     child: Stack(
                       clipBehavior: Clip.none,
-                      children: kFieldPositions.map((pos) {
-                        final isSelected = _selected == pos;
-                        final left = pos.x * w - 20;
-                        final top = pos.y * h - 20;
-                        return Positioned(
-                          left: left,
-                          top: top,
-                          child: GestureDetector(
-                            onTap: () => setState(() => _selected = pos),
-                            child: _PositionDot(
-                              label: pos.label,
-                              selected: isSelected,
+                      children: [
+                        // Team labels on the field
+                        Positioned(
+                          left: w * 0.1,
+                          top: 8,
+                          child: _FieldLabel('TEAM A →', _kTeamA),
+                        ),
+                        Positioned(
+                          right: w * 0.1,
+                          top: 8,
+                          child: _FieldLabel('← TEAM B', _kTeamB),
+                        ),
+                        // Position dots
+                        ...kFieldPositions.map((pos) {
+                          final isSelected = _selected == pos;
+                          return Positioned(
+                            left: pos.x * w - 20,
+                            top: pos.y * h - 20,
+                            child: GestureDetector(
+                              onTap: () => setState(() => _selected = pos),
+                              child: _PositionDot(
+                                label: pos.label,
+                                team: pos.team,
+                                selected: isSelected,
+                              ),
                             ),
-                          ),
-                        );
-                      }).toList(),
+                          );
+                        }),
+                      ],
                     ),
                   ),
                 );
@@ -147,24 +178,21 @@ class _PositionPickerSheetState extends State<_PositionPickerSheet> {
                   ? null
                   : () => Navigator.pop(context, _selected),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _green,
+                backgroundColor: _kSelected,
                 foregroundColor: Colors.white,
                 disabledBackgroundColor: Colors.white10,
                 disabledForegroundColor: Colors.white30,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                    borderRadius: BorderRadius.circular(14)),
                 textStyle: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                ),
+                    fontWeight: FontWeight.w800, fontSize: 15),
               ),
               child: Text(
                 _selected == null
                     ? 'Choose a Position'
-                    : 'Confirm — ${_selected!.label}',
+                    : 'Confirm — Team ${_selected!.team}  ·  ${_selected!.label}',
               ),
             ),
           ),
@@ -176,15 +204,14 @@ class _PositionPickerSheetState extends State<_PositionPickerSheet> {
   }
 
   void _handleTap(Offset pos, double w, double h) {
-    // Find nearest position within 40px tap radius
     FieldPosition? closest;
-    double minDist = 40;
+    double minDist = 40 * 40;
     for (final p in kFieldPositions) {
       final dx = p.x * w - pos.dx;
       final dy = p.y * h - pos.dy;
-      final dist = (dx * dx + dy * dy);
-      if (dist < minDist * minDist && dist < minDist) {
-        minDist = dist.toDouble();
+      final dist = dx * dx + dy * dy;
+      if (dist < minDist) {
+        minDist = dist;
         closest = p;
       }
     }
@@ -192,31 +219,79 @@ class _PositionPickerSheetState extends State<_PositionPickerSheet> {
   }
 }
 
-/// A single position marker dot.
-class _PositionDot extends StatelessWidget {
+class _TeamBadge extends StatelessWidget {
+  final Color color;
   final String label;
-  final bool selected;
-
-  const _PositionDot({required this.label, required this.selected});
+  const _TeamBadge({required this.color, required this.label});
 
   @override
   Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12, height: 12,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+            border: Border.all(color: Colors.white54, width: 1),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(label,
+            style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3)),
+      ],
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  final Color color;
+  const _FieldLabel(this.text, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: color.withOpacity(0.85),
+        fontSize: 9,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.5,
+        shadows: const [Shadow(color: Colors.black54, blurRadius: 4)],
+      ),
+    );
+  }
+}
+
+class _PositionDot extends StatelessWidget {
+  final String label;
+  final String team;
+  final bool selected;
+  const _PositionDot({required this.label, required this.team, required this.selected});
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = selected ? _kSelected : (team == 'A' ? _kTeamA : _kTeamB);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      width: 40,
-      height: 40,
+      width: 40, height: 40,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: selected ? const Color(0xFF1DB954) : const Color(0xFFCC1F3A),
+        color: baseColor,
         border: Border.all(
           color: Colors.white,
           width: selected ? 2.5 : 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: (selected ? const Color(0xFF1DB954) : const Color(0xFFCC1F3A))
-                .withOpacity(0.5),
-            blurRadius: selected ? 10 : 4,
+            color: baseColor.withOpacity(0.55),
+            blurRadius: selected ? 12 : 4,
             spreadRadius: selected ? 2 : 0,
           ),
         ],
@@ -236,7 +311,6 @@ class _PositionDot extends StatelessWidget {
   }
 }
 
-/// Draws a realistic green football field with white markings.
 class _FieldPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -250,15 +324,14 @@ class _FieldPainter extends CustomPainter {
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
-    // ── Background ──
     final fieldRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(0, 0, w, h),
       const Radius.circular(8),
     );
     canvas.drawRRect(fieldRect, fieldPaint);
 
-    // ── Alternating grass stripes ──
-    final stripeCount = 8;
+    // Alternating stripes
+    const stripeCount = 8;
     final stripeWidth = w / stripeCount;
     for (var i = 0; i < stripeCount; i += 2) {
       canvas.drawRect(
@@ -266,91 +339,66 @@ class _FieldPainter extends CustomPainter {
         stripePaint,
       );
     }
-
-    // Clip to field bounds
     canvas.clipRRect(fieldRect);
 
-    // ── Outer boundary ──
-    canvas.drawRect(
-      Rect.fromLTWH(4, 4, w - 8, h - 8),
-      linePaint,
-    );
+    // Boundary
+    canvas.drawRect(Rect.fromLTWH(4, 4, w - 8, h - 8), linePaint);
 
-    // ── Halfway line ──
+    // Halfway line
     canvas.drawLine(Offset(w / 2, 4), Offset(w / 2, h - 4), linePaint);
 
-    // ── Center circle ──
-    final centerCircleRadius = h * 0.18;
-    canvas.drawCircle(Offset(w / 2, h / 2), centerCircleRadius, linePaint);
+    // Center circle
+    canvas.drawCircle(Offset(w / 2, h / 2), h * 0.18, linePaint);
+    canvas.drawCircle(Offset(w / 2, h / 2), 3,
+        Paint()..color = Colors.white.withOpacity(0.85));
 
-    // ── Center spot ──
-    canvas.drawCircle(
-      Offset(w / 2, h / 2),
-      3,
-      Paint()..color = Colors.white.withOpacity(0.85),
-    );
-
-    // ── Left penalty area ──
+    // Left penalty area
     final penaltyW = w * 0.14;
     final penaltyH = h * 0.50;
     final penaltyTop = (h - penaltyH) / 2;
     canvas.drawRect(
-      Rect.fromLTWH(4, penaltyTop, penaltyW, penaltyH),
-      linePaint,
-    );
+        Rect.fromLTWH(4, penaltyTop, penaltyW, penaltyH), linePaint);
 
-    // ── Left goal area ──
+    // Left goal area
     final goalAreaW = w * 0.065;
     final goalAreaH = h * 0.26;
     final goalAreaTop = (h - goalAreaH) / 2;
     canvas.drawRect(
-      Rect.fromLTWH(4, goalAreaTop, goalAreaW, goalAreaH),
-      linePaint,
+        Rect.fromLTWH(4, goalAreaTop, goalAreaW, goalAreaH), linePaint);
+
+    // Left penalty spot + arc
+    canvas.drawCircle(Offset(w * 0.115, h / 2), 3,
+        Paint()..color = Colors.white.withOpacity(0.85));
+    canvas.drawArc(
+      Rect.fromCenter(
+          center: Offset(w * 0.115, h / 2),
+          width: penaltyH * 0.65,
+          height: penaltyH * 0.65),
+      -1.1, 2.2, false, linePaint,
     );
 
-    // ── Left penalty spot ──
-    canvas.drawCircle(
-      Offset(w * 0.115, h / 2),
-      3,
-      Paint()..color = Colors.white.withOpacity(0.85),
-    );
-
-    // ── Left penalty arc ──
-    final arcRect = Rect.fromCenter(
-      center: Offset(w * 0.115, h / 2),
-      width: penaltyH * 0.65,
-      height: penaltyH * 0.65,
-    );
-    canvas.drawArc(arcRect, -1.1, 2.2, false, linePaint);
-
-    // ── Right penalty area ──
+    // Right penalty area
     canvas.drawRect(
-      Rect.fromLTWH(w - 4 - penaltyW, penaltyTop, penaltyW, penaltyH),
-      linePaint,
-    );
+        Rect.fromLTWH(w - 4 - penaltyW, penaltyTop, penaltyW, penaltyH),
+        linePaint);
 
-    // ── Right goal area ──
+    // Right goal area
     canvas.drawRect(
-      Rect.fromLTWH(w - 4 - goalAreaW, goalAreaTop, goalAreaW, goalAreaH),
-      linePaint,
+        Rect.fromLTWH(w - 4 - goalAreaW, goalAreaTop, goalAreaW, goalAreaH),
+        linePaint);
+
+    // Right penalty spot + arc
+    canvas.drawCircle(Offset(w * 0.885, h / 2), 3,
+        Paint()..color = Colors.white.withOpacity(0.85));
+    canvas.drawArc(
+      Rect.fromCenter(
+          center: Offset(w * 0.885, h / 2),
+          width: penaltyH * 0.65,
+          height: penaltyH * 0.65),
+      2.0, 2.2, false, linePaint,
     );
 
-    // ── Right penalty spot ──
-    canvas.drawCircle(
-      Offset(w * 0.885, h / 2),
-      3,
-      Paint()..color = Colors.white.withOpacity(0.85),
-    );
-
-    // ── Right penalty arc ──
-    final arcRectR = Rect.fromCenter(
-      center: Offset(w * 0.885, h / 2),
-      width: penaltyH * 0.65,
-      height: penaltyH * 0.65,
-    );
-    canvas.drawArc(arcRectR, 2.0, 2.2, false, linePaint);
-
-    // ── Left goal ──
+    // Goals
     final goalH = h * 0.16;
     final goalW = w * 0.025;
     final goalTop = (h - goalH) / 2;
@@ -358,33 +406,22 @@ class _FieldPainter extends CustomPainter {
       ..color = Colors.white.withOpacity(0.85)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
+    canvas.drawRect(Rect.fromLTWH(0, goalTop, goalW, goalH), goalPaint);
     canvas.drawRect(
-      Rect.fromLTWH(0, goalTop, goalW, goalH),
-      goalPaint,
-    );
+        Rect.fromLTWH(w - goalW, goalTop, goalW, goalH), goalPaint);
 
-    // ── Right goal ──
-    canvas.drawRect(
-      Rect.fromLTWH(w - goalW, goalTop, goalW, goalH),
-      goalPaint,
-    );
-
-    // ── Corner arcs ──
-    final cornerRadius = w * 0.025;
+    // Corner arcs
+    final cr = w * 0.025;
     final corners = [
-      Offset(4, 4),
-      Offset(w - 4, 4),
-      Offset(4, h - 4),
-      Offset(w - 4, h - 4),
+      Offset(4, 4), Offset(w - 4, 4),
+      Offset(4, h - 4), Offset(w - 4, h - 4),
     ];
-    final cornerAngles = [0.0, 1.57, -1.57, 3.14];
+    final angles = [0.0, 1.57, -1.57, 3.14];
     for (var i = 0; i < 4; i++) {
-      final r = Rect.fromCenter(
-        center: corners[i],
-        width: cornerRadius * 2,
-        height: cornerRadius * 2,
+      canvas.drawArc(
+        Rect.fromCenter(center: corners[i], width: cr * 2, height: cr * 2),
+        angles[i], 1.57, false, linePaint,
       );
-      canvas.drawArc(r, cornerAngles[i], 1.57, false, linePaint);
     }
   }
 

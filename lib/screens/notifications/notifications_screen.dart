@@ -5,6 +5,8 @@ import '../../l10n/app_localizations.dart';
 import '../../models/notification_models.dart';
 import '../../services/notification_inbox_service.dart';
 import '../../theme/app_theme.dart';
+import '../home/session_detail_screen.dart';
+import '../match_booking/my_match_bookings_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -61,17 +63,81 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           return RefreshIndicator(
             onRefresh: () => svc.loadNotifications(),
             color: context.primary,
-            child: ListView.separated(
+            child: ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: svc.notifications.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, indent: 72),
-              itemBuilder: (_, i) =>
-                  _buildTile(svc.notifications[i], svc),
+              itemBuilder: (_, i) {
+                final n = svc.notifications[i];
+                return Column(
+                  children: [
+                    _buildSwipeableTile(n, svc),
+                    if (i < svc.notifications.length - 1)
+                      const Divider(height: 1, indent: 72),
+                  ],
+                );
+              },
             ),
           );
         },
       ),
+    );
+  }
+
+  void _navigateTo(AppNotification n) {
+    final refId = n.referenceId;
+    if (refId == null) return;
+
+    final refType = n.referenceType ?? '';
+    if (refType == 'session' ||
+        n.type == 'session_joined' ||
+        n.type == 'player_joined' ||
+        n.type == 'session_cancelled') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SessionDetailScreen(sessionId: refId),
+        ),
+      );
+    } else if (refType == 'match' ||
+        n.type.startsWith('match_') ||
+        n.type.startsWith('reschedule_')) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const MyMatchBookingsScreen()),
+      );
+    }
+  }
+
+  Widget _buildSwipeableTile(AppNotification n, NotificationInboxService svc) {
+    final l = AppLocalizations.of(context);
+    return Dismissible(
+      key: ValueKey('notif_${n.id}'),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) {
+        svc.deleteNotification(n.id);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(l.notificationRemoved),
+          duration: const Duration(seconds: 2),
+        ));
+      },
+      background: Container(
+        color: context.errorColor.withOpacity(0.15),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_outline_rounded, color: context.errorColor),
+            const SizedBox(height: 4),
+            Text(l.removelog,
+                style: TextStyle(
+                    color: context.errorColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+      child: _buildTile(n, svc),
     );
   }
 
@@ -86,6 +152,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return InkWell(
       onTap: () {
         if (!n.isRead) svc.markRead(n.id);
+        _navigateTo(n);
       },
       child: Container(
         color: n.isRead ? null : context.greenTint,
@@ -185,6 +252,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         'match_rescheduled' => Icons.schedule_rounded,
         'reschedule_accepted' => Icons.check_circle_rounded,
         'reschedule_rejected' => Icons.cancel_rounded,
+        'low_attendance_warning' => Icons.group_off_rounded,
         _ => Icons.notifications_rounded,
       };
 
@@ -199,6 +267,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ctx.errorColor,
         'match_rescheduled' => const Color(0xFFF39C12),
         'match_request' || 'player_joined' => ctx.primary,
+        'low_attendance_warning' => const Color(0xFFF39C12),
         _ => ctx.textHint,
       };
 

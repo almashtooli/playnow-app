@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
@@ -435,95 +438,96 @@ class _MyVenueScreenState extends State<MyVenueScreen> {
 
   // ── Add dialogs ────────────────────────────────────────────────────────────
 
-  void _showAddPhotoDialog() {
-    final urlCtrl = TextEditingController();
-    final captionCtrl = TextEditingController();
-    final captionArCtrl = TextEditingController();
-    bool saving = false;
+  Future<void> _showAddPhotoDialog() async {
+    // Step 1: pick image from device
+    final picker = ImagePicker();
+    final file   = await picker.pickImage(
+      source:       ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (file == null || !mounted) return;
 
-    showDialog(
+    // Step 2: ask for optional captions
+    final captionCtrl   = TextEditingController();
+    final captionArCtrl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
-          title: const Text('Add Photo'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: urlCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Photo URL *',
-                    hintText: 'https://...',
-                    prefixIcon: Icon(Icons.link),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Photo'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Preview of selected image
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.file(
+                  File(file.path),
+                  height: 160,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 160,
+                    color: Theme.of(ctx).colorScheme.surfaceVariant,
+                    child: const Icon(Icons.image_outlined, size: 48),
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: captionCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Caption (English)',
-                    prefixIcon: Icon(Icons.text_fields),
-                  ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: captionCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Caption (English)',
+                  prefixIcon: Icon(Icons.text_fields),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: captionArCtrl,
-                  textDirection: TextDirection.rtl,
-                  decoration: const InputDecoration(
-                    labelText: 'التسمية (عربي)',
-                    prefixIcon: Icon(Icons.text_fields),
-                  ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: captionArCtrl,
+                textDirection: TextDirection.rtl,
+                decoration: const InputDecoration(
+                  labelText: 'التسمية (عربي)',
+                  prefixIcon: Icon(Icons.text_fields),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: saving
-                  ? null
-                  : () async {
-                      final url = urlCtrl.text.trim();
-                      if (url.isEmpty) return;
-                      setS(() => saving = true);
-                      try {
-                        await context.read<MediaService>().addPhoto(
-                              _venue!.id,
-                              url,
-                              caption: captionCtrl.text.trim().isNotEmpty
-                                  ? captionCtrl.text.trim()
-                                  : null,
-                              captionAr: captionArCtrl.text.trim().isNotEmpty
-                                  ? captionArCtrl.text.trim()
-                                  : null,
-                            );
-                        if (mounted) {
-                          Navigator.pop(ctx);
-                          _loadMedia();
-                        }
-                      } on ApiException catch (e) {
-                        setS(() => saving = false);
-                        if (mounted) UiHelpers.showError(context, e.message);
-                      }
-                    },
-              child: saving
-                  ? const SizedBox(
-                      width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Add'),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Upload'),
+          ),
+        ],
       ),
-    ).then((_) {
-      urlCtrl.dispose();
+    );
+
+    if (confirmed != true || !mounted) {
       captionCtrl.dispose();
       captionArCtrl.dispose();
-    });
+      return;
+    }
+
+    // Step 3: upload
+    try {
+      await context.read<MediaService>().addPhoto(
+        _venue!.id,
+        file,
+        caption:   captionCtrl.text.trim().isNotEmpty ? captionCtrl.text.trim() : null,
+        captionAr: captionArCtrl.text.trim().isNotEmpty ? captionArCtrl.text.trim() : null,
+      );
+      if (mounted) _loadMedia();
+    } on ApiException catch (e) {
+      if (mounted) UiHelpers.showError(context, e.message);
+    } finally {
+      captionCtrl.dispose();
+      captionArCtrl.dispose();
+    }
   }
 
   void _showAddVideoDialog() {

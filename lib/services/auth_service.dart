@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
 import '../models/auth_models.dart';
@@ -62,14 +63,24 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<String?> register(String name, String email, String password) async {
+  Future<String?> register(
+    String name,
+    String email,
+    String password, {
+    String? phone,
+    String? birthDate,
+  }) async {
     try {
-      final data = await apiClient.post(
+      await apiClient.post(
         '/auth/register',
-        body: RegisterRequest(name: name, email: email, password: password).toJson(),
+        body: RegisterRequest(
+          name: name,
+          email: email,
+          password: password,
+          phone: phone,
+          birthDate: birthDate,
+        ).toJson(),
       );
-      await _saveToken(data['token']);
-      await fetchMe();
       return null;
     } on ApiException catch (e) {
       return e.message;
@@ -101,6 +112,25 @@ class AuthService extends ChangeNotifier {
       return e.message;
     } catch (e) {
       return 'Connection failed. Please try again.';
+    }
+  }
+
+  Future<String?> uploadAvatar(XFile file) async {
+    try {
+      final data = await apiClient.uploadFile(
+        '/auth/avatar',
+        bytes: await file.readAsBytes(),
+        filename: file.name,
+        fieldName: 'file',
+      );
+      final url = data['avatarUrl'] as String;
+      _currentUser = _currentUser?.copyWith(avatarUrl: url);
+      notifyListeners();
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'Upload failed. Please try again.';
     }
   }
 

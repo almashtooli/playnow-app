@@ -27,15 +27,24 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
   bool _hasError = false;
   String _errorMessage = '';
 
+  final Set<int> _pinnedLogIds = {};
+  final Set<int> _removedLogIds = {};
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _load();
+    SessionService.refreshBookings.addListener(_onSessionChange);
+  }
+
+  void _onSessionChange() {
+    if (mounted) _load(silent: true);
   }
 
   @override
   void dispose() {
+    SessionService.refreshBookings.removeListener(_onSessionChange);
     _tabController.dispose();
     super.dispose();
   }
@@ -49,12 +58,20 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
 
   List<Session> get _pastSessions {
     final now = DateTime.now();
-    return _bookings
+    final all = _bookings
         .where((s) =>
-            s.endsAt.isBefore(now) ||
-            s.status == 'cancelled' ||
-            s.status == 'completed')
+            !_removedLogIds.contains(s.id) &&
+            (s.endsAt.isBefore(now) ||
+                s.status == 'cancelled' ||
+                s.status == 'completed'))
         .toList();
+    // Pinned items float to the top
+    all.sort((a, b) {
+      final aPinned = _pinnedLogIds.contains(a.id) ? 0 : 1;
+      final bPinned = _pinnedLogIds.contains(b.id) ? 0 : 1;
+      return aPinned.compareTo(bPinned);
+    });
+    return all;
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -195,8 +212,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
           padding: const EdgeInsets.only(top: 100),
           child: Column(
             children: [
-              Icon(Icons.history_rounded,
-                  size: 64, color: context.textHint),
+              Icon(Icons.history_rounded, size: 64, color: context.textHint),
               const SizedBox(height: 12),
               Text(
                 l.noPastBookings,
@@ -206,11 +222,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                     color: context.textSecondary),
               ),
               const SizedBox(height: 6),
-              Text(
-                l.pastBookingsEmpty,
-                style: TextStyle(
-                    fontSize: 13, color: context.textHint),
-              ),
+              Text(l.pastBookingsEmpty,
+                  style: TextStyle(fontSize: 13, color: context.textHint)),
             ],
           ),
         ),
@@ -223,13 +236,95 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: sessions.length,
-        itemBuilder: (_, i) =>
-            _buildBookingCard(sessions[i], allowCancel: false),
+        itemBuilder: (_, i) => _buildSwipeableLogCard(sessions[i]),
       ),
     );
   }
 
-  Widget _buildBookingCard(Session session, {required bool allowCancel}) {
+  Widget _buildSwipeableLogCard(Session session) {
+    final l = AppLocalizations.of(context);
+    final isPinned = _pinnedLogIds.contains(session.id);
+    return Dismissible(
+      key: ValueKey('log_${session.id}'),
+      direction: DismissDirection.horizontal,
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // Swipe right → pin/unpin
+          setState(() {
+            if (isPinned) {
+              _pinnedLogIds.remove(session.id);
+            } else {
+              _pinnedLogIds.add(session.id);
+            }
+          });
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(isPinned ? l.logUnpinned : l.logPinned),
+            duration: const Duration(seconds: 2),
+          ));
+          return false; // keep the item
+        } else {
+          // Swipe left → remove
+          return true;
+        }
+      },
+      onDismissed: (_) {
+        setState(() => _removedLogIds.add(session.id));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(l.logRemoved),
+          duration: const Duration(seconds: 2),
+        ));
+      },
+      // Swipe right background (pin)
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: context.primary.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                color: context.primary),
+            const SizedBox(height: 4),
+            Text(isPinned ? l.logUnpinned : l.pinToTop,
+                style: TextStyle(
+                    color: context.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+      // Swipe left background (delete)
+      secondaryBackground: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: context.errorColor.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_outline_rounded, color: context.errorColor),
+            const SizedBox(height: 4),
+            Text(l.removelog,
+                style: TextStyle(
+                    color: context.errorColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+      child: _buildBookingCard(session, allowCancel: false, isPinned: isPinned),
+    );
+  }
+
+  Widget _buildBookingCard(Session session,
+      {required bool allowCancel, bool isPinned = false}) {
     final isUpcoming = session.startsAt.isAfter(DateTime.now());
     final statusColor = _statusColor(session.status);
 
@@ -273,9 +368,20 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(session.venueName,
-                              style: context.tt.titleMedium
-                                  ?.copyWith(fontSize: 14)),
+                          Row(
+                            children: [
+                              if (isPinned) ...[
+                                Icon(Icons.push_pin,
+                                    size: 12, color: context.primary),
+                                const SizedBox(width: 4),
+                              ],
+                              Expanded(
+                                child: Text(session.venueName,
+                                    style: context.tt.titleMedium
+                                        ?.copyWith(fontSize: 14)),
+                              ),
+                            ],
+                          ),
                           Text(session.pitchName,
                               style: TextStyle(
                                   fontSize: 12,

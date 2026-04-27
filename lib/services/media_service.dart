@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../core/api_client.dart';
 import '../models/venue_models.dart';
@@ -14,18 +15,20 @@ class MediaService extends ChangeNotifier {
 
   Future<VenuePhoto> addPhoto(
     int venueId,
-    String url, {
+    XFile file, {
     String? caption,
     String? captionAr,
     int sortOrder = 0,
   }) async {
-    final json = await apiClient.post(
+    final json = await apiClient.uploadFile(
       '/venues/$venueId/media/photos',
-      body: {
-        'url': url,
+      bytes: await file.readAsBytes(),
+      filename: file.name,
+      fieldName: 'file',
+      fields: {
         if (caption != null) 'caption': caption,
         if (captionAr != null) 'captionAr': captionAr,
-        'sortOrder': sortOrder,
+        'sortOrder': sortOrder.toString(),
       },
     );
     return VenuePhoto.fromJson(json);

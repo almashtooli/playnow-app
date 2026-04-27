@@ -10,6 +10,7 @@ import '../../services/session_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/empty_error_states.dart';
 import '../../widgets/football_field_picker.dart';
+import '../../widgets/seats_picker.dart';
 import '../../widgets/shimmer_widget.dart';
 
 class GamesScreen extends StatefulWidget {
@@ -119,19 +120,28 @@ class _GamesScreenState extends State<GamesScreen> {
       return;
     }
 
-    // Step 1: let the player pick their position on the field
+    // Step 1: pick seats
+    final seats = await showSeatsPicker(
+      context,
+      remainingSpots: session.remainingSpots,
+      pricePerPlayer: session.pricePerPlayer,
+    );
+    if (seats == null || !mounted) return;
+
+    // Step 2: pick position
     final position = await showPositionPicker(context);
     if (position == null || !mounted) return;
 
-    // Step 2: confirm booking with chosen position
+    // Step 3: confirm
+    final total = (seats * session.pricePerPlayer).toStringAsFixed(1);
     final confirmed = await UiHelpers.confirm(
       context,
       title: 'Confirm Booking',
       message:
-          'Reserve a spot at ${session.venueName}\n'
+          'Reserve ${seats == 1 ? 'a spot' : '$seats spots'} at ${session.venueName}\n'
           '${_formatDate(session.startsAt)} at ${_formatTime(session.startsAt)}\n\n'
-          'Position: ${position.label} (${position.fullName})\n'
-          '${session.pricePerPlayer.toStringAsFixed(1)} JD per player',
+          'Position: ${position.label} — ${position.fullName} (Team ${position.team})\n'
+          'Total: $total JD',
       confirmText: 'Book Now',
       confirmColor: context.primary,
     );
@@ -141,10 +151,13 @@ class _GamesScreenState extends State<GamesScreen> {
     try {
       await context.read<SessionService>().joinSession(
             session.id,
+            seats: seats,
             position: position.label,
           );
       if (mounted) {
-        UiHelpers.showSuccess(context, 'Spot reserved! See you on the pitch!');
+        UiHelpers.showSuccess(context, seats == 1
+            ? 'Spot reserved! See you on the pitch!'
+            : '$seats spots reserved! See you on the pitch!');
         _load(silent: true);
       }
     } on ApiException catch (e) {

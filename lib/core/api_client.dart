@@ -1,6 +1,7 @@
 import 'dart:async' as async_lib;
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -185,6 +186,41 @@ class ApiClient {
         );
       default:
         throw ApiException(message, code: code, statusCode: statusCode);
+    }
+  }
+
+  // ── Multipart Upload ──────────────────────────────────────────────────────
+
+  Future<dynamic> uploadFile(
+    String path, {
+    required Uint8List bytes,
+    required String filename,
+    required String fieldName,
+    Map<String, String>? fields,
+  }) async {
+    try {
+      final uri     = Uri.parse('$baseUrl$path');
+      final request = http.MultipartRequest('POST', uri);
+
+      if (_token != null)  request.headers['Authorization']          = 'Bearer $_token';
+      if (_locale != null) request.headers['Accept-Language']        = _locale!;
+      request.headers['ngrok-skip-browser-warning'] = 'true';
+
+      request.files.add(http.MultipartFile.fromBytes(fieldName, bytes, filename: filename));
+      if (fields != null) request.fields.addAll(fields);
+
+      final streamed = await request.send().timeout(_timeout);
+      final response = await http.Response.fromStream(streamed);
+      return _handleResponse(response);
+    } on SocketException {
+      throw const NetworkException();
+    } on async_lib.TimeoutException {
+      throw const TimeoutException();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      debugPrint('ApiClient uploadFile error: $e');
+      throw ApiException('Upload failed. Please try again.');
     }
   }
 

@@ -87,6 +87,36 @@ class AppLocalizations {
   String get joinAndPlay =>
       isAr ? 'انضم إلى بلاي ناو وابدأ اللعب' : 'Join PlayNow and start playing';
   String get fullName => isAr ? 'الاسم الكامل' : 'Full Name';
+  String get confirmPassword => isAr ? 'تأكيد كلمة المرور' : 'Confirm Password';
+  String get passwordsDoNotMatch =>
+      isAr ? 'كلمتا المرور غير متطابقتين.' : 'Passwords do not match.';
+  String get birthDate => isAr ? 'تاريخ الميلاد' : 'Birth Date';
+  String get selectBirthDate => isAr ? 'اختر تاريخ الميلاد' : 'Select birth date';
+  String get accountCreated =>
+      isAr ? 'تم إنشاء الحساب! سجّل دخولك الآن.' : 'Account created! Please log in.';
+
+  // ── Multi-seat booking ────────────────────────────────────────────────────────
+  String get howManySeats => isAr ? 'كم مقعداً؟' : 'How many seats?';
+  String get seatsForYouAndFriends =>
+      isAr ? 'لك ولأصدقائك' : 'For you and your friends';
+  String get totalPrice => isAr ? 'الإجمالي' : 'Total';
+  String get spotsRemaining => isAr ? 'مقاعد متبقية' : 'spots remaining';
+  String seatsCount(int n) => isAr ? '$n مقعد' : '$n seat${n == 1 ? '' : 's'}';
+  String totalCost(String amount) => isAr ? 'الإجمالي: $amount' : 'Total: $amount JD';
+
+  // ── Bookings / Logs ───────────────────────────────────────────────────────────
+  String get logPinned => isAr ? 'تم التثبيت في الأعلى' : 'Pinned to top';
+  String get logUnpinned => isAr ? 'تم إلغاء التثبيت' : 'Unpinned';
+  String get logRemoved => isAr ? 'تم حذف السجل' : 'Log removed';
+  String get pinToTop => isAr ? 'تثبيت في الأعلى' : 'Pin to top';
+  String get removelog => isAr ? 'حذف' : 'Remove';
+
+  // ── Notifications ─────────────────────────────────────────────────────────────
+  String get notificationRemoved => isAr ? 'تم حذف الإشعار' : 'Notification removed';
+  String get sessionDetails => isAr ? 'تفاصيل الجلسة' : 'Session Details';
+  String get viewVenue => isAr ? 'عرض الملعب' : 'View Venue';
+  String get couldNotLoadSession =>
+      isAr ? 'تعذّر تحميل تفاصيل الجلسة.' : 'Could not load session details.';
 
   // ── Profile ───────────────────────────────────────────────────────────────────
   String get profile => isAr ? 'الملف الشخصي' : 'Profile';
@@ -414,8 +444,18 @@ class AppLocalizations {
         'match_rescheduled' => isAr ? 'اقتراح وقت جديد للمباراة' : 'Match Rescheduled',
         'reschedule_accepted' => isAr ? 'تم قبول الوقت الجديد' : 'Reschedule Accepted',
         'reschedule_rejected' => isAr ? 'تم رفض الوقت الجديد' : 'Reschedule Rejected',
+        'low_attendance_warning' => isAr ? 'تحذير: حضور منخفض' : 'Low Attendance Warning',
         _ => '',
       };
+
+  // ── Chat ─────────────────────────────────────────────────────────────────────
+  String get sessionChat        => isAr ? 'دردشة الجلسة'          : 'Session Chat';
+  String get typeMessage        => isAr ? 'اكتب رسالة...'          : 'Type a message...';
+  String get noChatMessagesYet  => isAr ? 'لا رسائل بعد. كن أول من يكتب!' : 'No messages yet. Be the first to say hi!';
+  String get venueOwner         => isAr ? 'مالك الملعب'            : 'Venue Owner';
+  String get age                => isAr ? 'العمر'                   : 'Age';
+  String get yearsOld           => isAr ? 'سنة'                    : 'years old';
+  String get openChat           => isAr ? 'فتح الدردشة'            : 'Open Chat';
 
   // Localized short month names (for notification timestamps)
   String shortMonth(int month) {

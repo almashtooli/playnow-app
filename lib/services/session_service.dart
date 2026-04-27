@@ -1,8 +1,12 @@
+import 'package:flutter/foundation.dart';
+
 import '../core/api_client.dart';
 import '../models/session_models.dart';
 import 'venue_service.dart'; // for PagedResult
 
 class SessionService {
+  // Bumped after any join/cancel so listeners (e.g. MyBookingsScreen) can refresh.
+  static final refreshBookings = ValueNotifier<int>(0);
   Future<PagedResult<Session>> getSessionsPaged({
     int? venueId,
     bool availableOnly = false,
@@ -53,12 +57,20 @@ class SessionService {
     return data.map((e) => Session.fromBookingJson(e)).toList();
   }
 
-  Future<void> joinSession(int sessionId, {String? position}) async {
-    final body = position != null ? {'position': position} : null;
+  Future<Session> getSession(int id) async {
+    final json = await apiClient.get('/sessions/$id');
+    return Session.fromJson(json);
+  }
+
+  Future<void> joinSession(int sessionId, {String? position, int seats = 1}) async {
+    final body = <String, dynamic>{'seats': seats};
+    if (position != null) body['position'] = position;
     await apiClient.post('/sessions/$sessionId/join', body: body);
+    refreshBookings.value++;
   }
 
   Future<void> cancelJoin(int sessionId) async {
     await apiClient.post('/sessions/$sessionId/cancel-join');
+    refreshBookings.value++;
   }
 }
