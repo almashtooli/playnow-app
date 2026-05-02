@@ -25,6 +25,33 @@ class ChatMessage {
       );
 }
 
+class DmMessage {
+  final int id;
+  final int senderId;
+  final String senderName;
+  final String? senderAvatarUrl;
+  final String content;
+  final DateTime sentAt;
+
+  const DmMessage({
+    required this.id,
+    required this.senderId,
+    required this.senderName,
+    this.senderAvatarUrl,
+    required this.content,
+    required this.sentAt,
+  });
+
+  factory DmMessage.fromJson(Map<String, dynamic> json) => DmMessage(
+        id: json['id'],
+        senderId: json['senderId'],
+        senderName: json['senderName'] ?? 'Unknown',
+        senderAvatarUrl: json['senderAvatarUrl'],
+        content: json['content'] ?? '',
+        sentAt: DateTime.parse(json['sentAt']).toLocal(),
+      );
+}
+
 class ChatMember {
   final int userId;
   final String name;

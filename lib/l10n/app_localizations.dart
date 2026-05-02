@@ -445,8 +445,73 @@ class AppLocalizations {
         'reschedule_accepted' => isAr ? 'تم قبول الوقت الجديد' : 'Reschedule Accepted',
         'reschedule_rejected' => isAr ? 'تم رفض الوقت الجديد' : 'Reschedule Rejected',
         'low_attendance_warning' => isAr ? 'تحذير: حضور منخفض' : 'Low Attendance Warning',
+        'player_cancelled'      => isAr ? 'لاعب ألغى حجزه' : 'Player Cancelled',
+        'rate_session'          => isAr ? 'قيّم جلستك' : 'Rate Your Session',
+        'chat_message'          => isAr ? 'رسالة جديدة' : 'New Chat Message',
+        'friend_request'        => isAr ? 'طلب صداقة جديد' : 'New Friend Request',
+        'friend_accepted'       => isAr ? 'تم قبول طلب صداقتك' : 'Friend Request Accepted',
+        'session_invite'        => isAr ? 'دعوة لجلسة' : 'Session Invitation',
+        'dm_message'            => isAr ? 'رسالة مباشرة جديدة' : 'New Direct Message',
         _ => '',
       };
+
+  // ── City filters ──────────────────────────────────────────────────────────────
+  String get allCities  => isAr ? 'جميع المدن' : 'All Cities';
+  String get cityAmman  => isAr ? 'عمّان'       : 'Amman';
+  String get cityIrbid  => isAr ? 'إربد'        : 'Irbid';
+  String get cityZarqa  => isAr ? 'الزرقاء'     : 'Zarqa';
+  String get cityAqaba  => isAr ? 'العقبة'      : 'Aqaba';
+  String get cityKarak  => isAr ? 'الكرك'       : 'Karak';
+  String get cityMadaba => isAr ? 'مأدبا'       : 'Madaba';
+
+  // ── Cancellation restriction ──────────────────────────────────────────────────
+  String get cannotCancelWithin1Hour =>
+      isAr ? 'لا يمكن الإلغاء خلال ساعة من بدء الجلسة' : 'Cancellation locked within 1 hour of start';
+
+  // ── Post-session rating ───────────────────────────────────────────────────────
+  String get rateYourSession  => isAr ? 'قيّم جلستك'             : 'Rate Your Session';
+  String get howWasSession    => isAr ? 'كيف كانت تجربتك في هذا الملعب؟' : 'How was your experience at this venue?';
+  String get submitRating     => isAr ? 'إرسال التقييم'           : 'Submit Rating';
+  String get skipRating       => isAr ? 'تخطي'                    : 'Skip';
+  String get ratingSubmitted  => isAr ? 'شكراً على تقييمك!'       : 'Thank you for rating!';
+  String get averageRating    => isAr ? 'متوسط التقييم'           : 'Average Rating';
+  String get noRatingsYet     => isAr ? 'لا توجد تقييمات بعد'    : 'No ratings yet';
+  String get tapStarsToRate   => isAr ? 'اضغط النجوم للتقييم'    : 'Tap stars to rate';
+  String get rateVenue        => isAr ? 'قيّم الملعب'             : 'Rate Venue';
+  String get alreadyRated     => isAr ? 'تم تقييمك'              : 'Already Rated';
+  String ratingsCount(int n)  => isAr ? '($n تقييم)' : '($n rating${n == 1 ? '' : 's'})';
+
+  // ── Friend system ─────────────────────────────────────────────────────────────
+  String get friends              => isAr ? 'الأصدقاء'                        : 'Friends';
+  String get tabFriends           => isAr ? 'الأصدقاء'                        : 'Friends';
+  String get searchPlayers        => isAr ? 'ابحث عن لاعبين...'              : 'Search players...';
+  String get sendFriendRequest    => isAr ? 'إرسال طلب صداقة'                : 'Send Request';
+  String get friendRequestSent    => isAr ? 'تم إرسال طلب الصداقة!'          : 'Friend request sent!';
+  String get friendRequests       => isAr ? 'طلبات الصداقة'                   : 'Friend Requests';
+  String get myFriends            => isAr ? 'أصدقائي'                        : 'My Friends';
+  String get noFriendsYet         => isAr ? 'لا أصدقاء بعد'                  : 'No friends yet';
+  String get addFriendsHint       => isAr ? 'ابحث عن لاعبين وأضفهم كأصدقاء' : 'Search for players and add them as friends';
+  String get noFriendRequests     => isAr ? 'لا توجد طلبات معلقة'            : 'No pending requests';
+  String get removeFriend         => isAr ? 'إزالة الصديق'                   : 'Remove Friend';
+  String get removeFriendConfirm  => isAr ? 'هل تريد إزالة هذا الصديق؟'     : 'Remove this friend?';
+  String get friendRemoved        => isAr ? 'تم إزالة الصديق'                : 'Friend removed';
+  String get friendAccepted       => isAr ? 'تم قبول طلب الصداقة!'           : 'Friend request accepted!';
+  String get friendRejected       => isAr ? 'تم رفض الطلب'                   : 'Request rejected';
+  String get messageFriend        => isAr ? 'مراسلة'                         : 'Message';
+  String get inviteFriends        => isAr ? 'دعوة أصدقاء'                    : 'Invite Friends';
+  String get selectFriendsToInvite => isAr ? 'اختر أصدقاءك للدعوة'          : 'Select friends to invite';
+  String get invitesSent          => isAr ? 'تم إرسال الدعوات!'              : 'Invitations sent!';
+  String get noFriendsAvailable   => isAr ? 'لا يوجد أصدقاء للدعوة'         : 'No friends to invite';
+  String get requestPending       => isAr ? 'طلب معلق'                       : 'Request Pending';
+  String get alreadyFriends       => isAr ? 'صديق بالفعل'                    : 'Already Friends';
+  String get searchResults        => isAr ? 'نتائج البحث'                    : 'Search Results';
+  String get startSearching       => isAr ? 'ابحث عن لاعبين بالاسم'          : 'Search for players by name';
+  String get suggestedPlayers     => isAr ? 'لاعبون مقترحون'                  : 'Suggested Players';
+
+  // ── Group booking indicator ───────────────────────────────────────────────────
+  String reservedNSpots(String name, int n) => isAr
+      ? '$name حجز $n ${n == 1 ? 'مقعد' : 'مقاعد'}'
+      : '$name reserved $n spot${n == 1 ? '' : 's'}';
 
   // ── Chat ─────────────────────────────────────────────────────────────────────
   String get sessionChat        => isAr ? 'دردشة الجلسة'          : 'Session Chat';

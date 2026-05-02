@@ -8,6 +8,7 @@ import '../../models/session_models.dart';
 import '../../services/session_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/empty_error_states.dart';
+import '../../widgets/rating_dialog.dart';
 import '../../widgets/shimmer_widget.dart';
 import '../match_booking/my_match_bookings_screen.dart';
 
@@ -29,6 +30,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
 
   final Set<int> _pinnedLogIds = {};
   final Set<int> _removedLogIds = {};
+  final Set<int> _ratedSessionIds = {}; // tracks rated sessions locally
 
   @override
   void initState() {
@@ -181,12 +183,25 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
     );
   }
 
+  // Returns true only when there is more than 60 min until the session starts.
+  bool _canCancel(Session session) {
+    if (session.status != 'open') return false;
+    final now = DateTime.now();
+    if (!session.startsAt.isAfter(now)) return false;
+    return session.startsAt.difference(now).inMinutes > 60;
+  }
+
   Widget _buildActiveTab() {
     final sessions = _activeSessions;
     if (sessions.isEmpty) {
-      return SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: EmptyBookingsState(),
+      return LayoutBuilder(
+        builder: (ctx, constraints) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: constraints.maxHeight,
+            child: const EmptyBookingsState(),
+          ),
+        ),
       );
     }
     return RefreshIndicator(
@@ -206,25 +221,30 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
     final sessions = _pastSessions;
     final l = AppLocalizations.of(context);
     if (sessions.isEmpty) {
-      return SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.only(top: 100),
-          child: Column(
-            children: [
-              Icon(Icons.history_rounded, size: 64, color: context.textHint),
-              const SizedBox(height: 12),
-              Text(
-                l.noPastBookings,
-                style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                    color: context.textSecondary),
+      return LayoutBuilder(
+        builder: (ctx, constraints) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: constraints.maxHeight,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.history_rounded, size: 64, color: context.textHint),
+                  const SizedBox(height: 12),
+                  Text(
+                    l.noPastBookings,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: context.textSecondary),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(l.pastBookingsEmpty,
+                      style: TextStyle(fontSize: 13, color: context.textHint)),
+                ],
               ),
-              const SizedBox(height: 6),
-              Text(l.pastBookingsEmpty,
-                  style: TextStyle(fontSize: 13, color: context.textHint)),
-            ],
+            ),
           ),
         ),
       );
@@ -323,6 +343,19 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
     );
   }
 
+  Future<void> _rateSession(Session session) async {
+    final l = AppLocalizations.of(context);
+    final rated = await showRatingDialog(
+      context,
+      sessionId: session.id,
+      venueName: session.venueName,
+    );
+    if (rated == true && mounted) {
+      setState(() => _ratedSessionIds.add(session.id));
+      UiHelpers.showSuccess(context, l.ratingSubmitted);
+    }
+  }
+
   Widget _buildBookingCard(Session session,
       {required bool allowCancel, bool isPinned = false}) {
     final isUpcoming = session.startsAt.isAfter(DateTime.now());
@@ -417,25 +450,94 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                     isUpcoming &&
                     session.status == 'open') ...[
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _cancelBooking(session),
-                      icon: const Icon(Icons.close_rounded, size: 16),
-                      label: Text(
-                          AppLocalizations.of(context).cancelBooking),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: context.errorColor,
-                        side: BorderSide(color: context.errorBorder),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        textStyle: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13),
+                  if (_canCancel(session))
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _cancelBooking(session),
+                        icon: const Icon(Icons.close_rounded, size: 16),
+                        label: Text(
+                            AppLocalizations.of(context).cancelBooking),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: context.errorColor,
+                          side: BorderSide(color: context.errorBorder),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          textStyle: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: context.borderColor.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.lock_clock_rounded,
+                              size: 14, color: context.textHint),
+                          const SizedBox(width: 6),
+                          Text(
+                            AppLocalizations.of(context)
+                                .cannotCancelWithin1Hour,
+                            style: TextStyle(
+                                fontSize: 12, color: context.textHint),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
+                ],
+                // Rate venue button for completed past sessions
+                if (!allowCancel &&
+                    (session.status == 'completed' ||
+                        session.endsAt.isBefore(DateTime.now()))) ...[
+                  const SizedBox(height: 12),
+                  if (_ratedSessionIds.contains(session.id))
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.star_rounded,
+                            size: 14, color: Color(0xFFF39C12)),
+                        const SizedBox(width: 6),
+                        Text(
+                          AppLocalizations.of(context).alreadyRated,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFF39C12),
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    )
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _rateSession(session),
+                        icon: const Icon(Icons.star_outline_rounded,
+                            size: 16),
+                        label: Text(
+                            AppLocalizations.of(context).rateVenue),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFF39C12),
+                          side: const BorderSide(
+                              color: Color(0xFFF39C12), width: 0.8),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          textStyle: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                      ),
+                    ),
                 ],
               ],
             ),

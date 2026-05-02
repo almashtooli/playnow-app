@@ -5,6 +5,7 @@ class SessionPlayer {
   final String? avatarUrl;
   final String? position;
   final String status;
+  final int seatsReserved; // how many spots this player booked
 
   SessionPlayer({
     required this.userId,
@@ -13,6 +14,7 @@ class SessionPlayer {
     this.avatarUrl,
     this.position,
     required this.status,
+    this.seatsReserved = 1,
   });
 
   factory SessionPlayer.fromJson(Map<String, dynamic> json) => SessionPlayer(
@@ -22,5 +24,6 @@ class SessionPlayer {
     avatarUrl: json['avatarUrl'],
     position: json['position'],
     status: json['status'] ?? 'reserved',
+    seatsReserved: json['seatsReserved'] ?? 1,
   );
 }

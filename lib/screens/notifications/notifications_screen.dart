@@ -5,6 +5,9 @@ import '../../l10n/app_localizations.dart';
 import '../../models/notification_models.dart';
 import '../../services/notification_inbox_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/empty_error_states.dart';
+import '../friends/dm_chat_screen.dart';
+import '../friends/friends_screen.dart';
 import '../home/session_detail_screen.dart';
 import '../match_booking/my_match_bookings_screen.dart';
 
@@ -57,6 +60,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 child: CircularProgressIndicator(
                     color: context.primary));
           }
+          if (svc.error != null && svc.notifications.isEmpty) {
+            return ErrorState(
+              message: svc.error,
+              onRetry: () => svc.loadNotifications(),
+            );
+          }
           if (svc.notifications.isEmpty) {
             return _buildEmpty();
           }
@@ -91,7 +100,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (refType == 'session' ||
         n.type == 'session_joined' ||
         n.type == 'player_joined' ||
-        n.type == 'session_cancelled') {
+        n.type == 'session_cancelled' ||
+        n.type == 'player_cancelled' ||
+        n.type == 'rate_session' ||
+        n.type == 'session_invite') {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -104,6 +116,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const MyMatchBookingsScreen()),
+      );
+    } else if (n.type == 'friend_request' || n.type == 'friend_accepted') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const FriendsScreen()),
+      );
+    } else if (n.type == 'dm_message') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DmChatScreen(
+            friendId: refId,
+            friendName: n.title,
+          ),
+        ),
       );
     }
   }
@@ -218,57 +245,75 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _buildEmpty() {
     final l = AppLocalizations.of(context);
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Padding(
-        padding: const EdgeInsets.only(top: 140),
-        child: Column(
-          children: [
-            Icon(Icons.notifications_none_rounded,
-                size: 64, color: context.textHint),
-            const SizedBox(height: 12),
-            Text(l.noNotificationsYet,
-                style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                    color: context.textSecondary)),
-            const SizedBox(height: 6),
-            Text(l.notificationsWillAppear,
-                style: TextStyle(
-                    fontSize: 13, color: context.textHint)),
-          ],
+    return LayoutBuilder(
+      builder: (ctx, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: constraints.maxHeight,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.notifications_none_rounded,
+                    size: 64, color: context.textHint),
+                const SizedBox(height: 12),
+                Text(l.noNotificationsYet,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: context.textSecondary)),
+                const SizedBox(height: 6),
+                Text(l.notificationsWillAppear,
+                    style: TextStyle(
+                        fontSize: 13, color: context.textHint)),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
   IconData _typeIcon(String type) => switch (type) {
-        'session_joined' => Icons.sports_soccer_rounded,
-        'player_joined' => Icons.person_add_rounded,
-        'session_cancelled' => Icons.cancel_rounded,
-        'match_request' => Icons.emoji_events_rounded,
-        'match_approved' => Icons.check_circle_rounded,
-        'match_cancelled' => Icons.cancel_rounded,
-        'match_rescheduled' => Icons.schedule_rounded,
-        'reschedule_accepted' => Icons.check_circle_rounded,
-        'reschedule_rejected' => Icons.cancel_rounded,
-        'low_attendance_warning' => Icons.group_off_rounded,
-        _ => Icons.notifications_rounded,
+        'session_joined'        => Icons.sports_soccer_rounded,
+        'player_joined'         => Icons.person_add_rounded,
+        'session_cancelled'     => Icons.cancel_rounded,
+        'player_cancelled'      => Icons.person_remove_rounded,
+        'match_request'         => Icons.emoji_events_rounded,
+        'match_approved'        => Icons.check_circle_rounded,
+        'match_cancelled'       => Icons.cancel_rounded,
+        'match_rescheduled'     => Icons.schedule_rounded,
+        'reschedule_accepted'   => Icons.check_circle_rounded,
+        'reschedule_rejected'   => Icons.cancel_rounded,
+        'low_attendance_warning'=> Icons.group_off_rounded,
+        'rate_session'          => Icons.star_rounded,
+        'chat_message'          => Icons.chat_bubble_rounded,
+        'friend_request'        => Icons.person_add_alt_1_rounded,
+        'friend_accepted'       => Icons.handshake_rounded,
+        'session_invite'        => Icons.send_rounded,
+        'dm_message'            => Icons.chat_rounded,
+        _                       => Icons.notifications_rounded,
       };
 
   Color _typeColor(String type, BuildContext ctx) => switch (type) {
-        'session_joined' ||
-        'match_approved' ||
-        'reschedule_accepted' =>
-          ctx.primary,
-        'session_cancelled' ||
-        'match_cancelled' ||
-        'reschedule_rejected' =>
-          ctx.errorColor,
-        'match_rescheduled' => const Color(0xFFF39C12),
-        'match_request' || 'player_joined' => ctx.primary,
+        'session_joined'   ||
+        'match_approved'   ||
+        'reschedule_accepted' ||
+        'friend_accepted'  ||
+        'session_invite'   => ctx.primary,
+        'session_cancelled'||
+        'match_cancelled'  ||
+        'reschedule_rejected'||
+        'player_cancelled' => ctx.errorColor,
+        'match_rescheduled'=> const Color(0xFFF39C12),
+        'match_request'    ||
+        'player_joined'    => ctx.primary,
         'low_attendance_warning' => const Color(0xFFF39C12),
-        _ => ctx.textHint,
+        'rate_session'     => const Color(0xFFF39C12),
+        'chat_message'     => const Color(0xFF3498DB),
+        'dm_message'       => const Color(0xFF3498DB),
+        'friend_request'   => ctx.primary,
+        _                  => ctx.textHint,
       };
 
   String _formatTime(DateTime dt) {

@@ -29,12 +29,16 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _hasError        = false;
   String _errorMessage  = '';
   String _searchQuery   = '';
+  String? _selectedCity;
 
   // Pagination state
   int  _currentPage   = 1;
   bool _hasMore       = false;
   bool _isLoadingMore = false;
   static const int _pageSize = 10;
+
+  // Jordan cities for filter chips
+  static const _cities = ['Amman', 'Irbid', 'Zarqa', 'Aqaba', 'Karak', 'Madaba'];
 
   @override
   void initState() {
@@ -65,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final result = await context.read<VenueService>().getVenuesPaged(
         q:        _searchQuery.isEmpty ? null : _searchQuery,
+        city:     _selectedCity,
         page:     1,
         pageSize: _pageSize,
       );
@@ -94,6 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final result = await context.read<VenueService>().getVenuesPaged(
         q:        _searchQuery.isEmpty ? null : _searchQuery,
+        city:     _selectedCity,
         page:     _currentPage + 1,
         pageSize: _pageSize,
       );
@@ -154,6 +160,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: _buildSearchBar(l),
               ),
             ),
+            SliverToBoxAdapter(
+              child: _buildCityFilters(l),
+            ),
             _buildBody(),
             if (_isLoadingMore)
               SliverToBoxAdapter(
@@ -179,6 +188,56 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCityFilters(AppLocalizations l) {
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+        children: [
+          _cityChip(null, l.allCities),
+          _cityChip('Amman',  l.cityAmman),
+          _cityChip('Irbid',  l.cityIrbid),
+          _cityChip('Zarqa',  l.cityZarqa),
+          _cityChip('Aqaba',  l.cityAqaba),
+          _cityChip('Karak',  l.cityKarak),
+          _cityChip('Madaba', l.cityMadaba),
+        ],
+      ),
+    );
+  }
+
+  Widget _cityChip(String? city, String label) {
+    final selected = _selectedCity == city;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selectedCity = city);
+        _loadVenues(silent: true);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? context.primary : context.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? context.primary : context.borderColor,
+            width: 0.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : context.textSecondary,
+          ),
         ),
       ),
     );

@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
+import '../../core/ui_helpers.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/dashboard_models.dart';
 import '../../models/session_models.dart';
+import '../../services/auth_service.dart';
 import '../../services/dashboard_service.dart';
+import '../../services/friend_service.dart';
 import '../../services/session_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/football_field_picker.dart';
+import '../../widgets/seats_picker.dart';
 import 'session_chat_screen.dart';
 
 class SessionDetailScreen extends StatefulWidget {
@@ -22,6 +27,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   Session? _session;
   bool _loading = true;
   String? _error;
+  bool _joining = false;
 
   @override
   void initState() {
@@ -43,6 +49,56 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           _loading = false;
         });
       }
+    }
+  }
+
+  Future<void> _joinFromDetail() async {
+    final auth = context.read<AuthService>();
+    if (!auth.isLoggedIn) {
+      UiHelpers.showWarning(context, 'Please log in to join.');
+      return;
+    }
+    final s = _session!;
+    final seats = await showSeatsPicker(
+      context,
+      remainingSpots: s.remainingSpots,
+      pricePerPlayer: s.pricePerPlayer,
+    );
+    if (seats == null || !mounted) return;
+
+    final position = await showPositionPicker(context);
+    if (position == null || !mounted) return;
+
+    final l = AppLocalizations.of(context);
+    final total = (seats * s.pricePerPlayer).toStringAsFixed(1);
+    final confirmed = await UiHelpers.confirm(
+      context,
+      title: l.confirmBookingTitle,
+      message: 'Reserve ${seats == 1 ? 'a spot' : '$seats spots'} at ${s.venueName}\n'
+          '${_formatDate(s.startsAt)} at ${_formatTime(s.startsAt)}\n\n'
+          'Position: ${position.label} — ${position.fullName} (Team ${position.team})\n'
+          'Total: $total JD',
+      confirmText: l.bookNow,
+      confirmColor: context.primary,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _joining = true);
+    try {
+      await context.read<SessionService>().joinSession(
+            s.id,
+            seats: seats,
+            position: position.label,
+          );
+      if (mounted) {
+        UiHelpers.showSuccess(
+            context, seats == 1 ? l.spotReserved : '$seats ${l.spotsRemaining}');
+        _load();
+      }
+    } on ApiException catch (e) {
+      if (mounted) UiHelpers.showError(context, e.message);
+    } finally {
+      if (mounted) setState(() => _joining = false);
     }
   }
 
@@ -240,25 +296,176 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Chat button
-          OutlinedButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SessionChatScreen(
-                  sessionId: s.id,
-                  sessionTitle: '${s.venueName} · ${s.pitchName}',
+          // Join button — only if open, not full, and user hasn't joined yet
+          if (s.isOpen && !s.isFull && !s.isJoined) ...[
+            ElevatedButton.icon(
+              onPressed: _joining ? null : _joinFromDetail,
+              icon: _joining
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.sports_soccer_rounded, size: 18),
+              label: Text(_joining ? l.loading : l.join),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Invite Friends button (only for open sessions)
+          if (s.status == 'open')
+            Consumer<FriendService>(
+              builder: (_, friendSvc, __) {
+                if (friendSvc.friends.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _showInviteFriendsSheet(s),
+                      icon: const Icon(Icons.person_add_rounded, size: 18),
+                      label: Text(l.inviteFriends),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: context.primary,
+                        side: BorderSide(color: context.primary),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                );
+              },
+            ),
+
+          // Chat button — only visible once the user has joined
+          if (s.isJoined)
+            OutlinedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SessionChatScreen(
+                    sessionId: s.id,
+                    sessionTitle: '${s.venueName} · ${s.pitchName}',
+                  ),
                 ),
               ),
+              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+              label: Text(l.openChat),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: context.primary,
+                side: BorderSide(color: context.primary),
+              ),
             ),
-            icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-            label: Text(l.openChat),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: context.primary,
-              side: BorderSide(color: context.primary),
-            ),
-          ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showInviteFriendsSheet(Session session) async {
+    final l = AppLocalizations.of(context);
+    final friendSvc = context.read<FriendService>();
+    final friends = friendSvc.friends;
+    if (friends.isEmpty) return;
+
+    final selected = <int>{};
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Container(
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.6),
+          decoration: BoxDecoration(
+            color: context.surface,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.person_add_rounded,
+                        color: context.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Text(l.selectFriendsToInvite,
+                        style: context.tt.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800)),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: context.borderColor),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: friends.length,
+                  itemBuilder: (_, i) {
+                    final f = friends[i];
+                    final isSelected = selected.contains(f.userId);
+                    return CheckboxListTile(
+                      value: isSelected,
+                      onChanged: (v) => setSheetState(() => v == true
+                          ? selected.add(f.userId)
+                          : selected.remove(f.userId)),
+                      title: Text(f.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600)),
+                      secondary: CircleAvatar(
+                        backgroundColor: context.greenTint,
+                        backgroundImage: f.avatarUrl != null
+                            ? NetworkImage(f.avatarUrl!)
+                            : null,
+                        child: f.avatarUrl == null
+                            ? Text(
+                                f.name.isNotEmpty
+                                    ? f.name[0].toUpperCase()
+                                    : '?',
+                                style: TextStyle(
+                                    color: context.primary,
+                                    fontWeight: FontWeight.w700),
+                              )
+                            : null,
+                      ),
+                      activeColor: context.primary,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                    16, 8, 16, 16 + MediaQuery.of(context).padding.bottom),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: selected.isEmpty
+                        ? null
+                        : () async {
+                            Navigator.pop(context);
+                            try {
+                              await friendSvc.inviteToSession(
+                                  session.id, selected.toList());
+                              if (mounted) {
+                                UiHelpers.showSuccess(
+                                    context, l.invitesSent);
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                UiHelpers.showError(
+                                    context, e.toString());
+                              }
+                            }
+                          },
+                    child: Text(l.invitesSent),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -528,26 +735,51 @@ class _PlayerTile extends StatelessWidget {
                   style: const TextStyle(
                       fontWeight: FontWeight.w700, fontSize: 15),
                 ),
-                if (player.position != null && player.position!.isNotEmpty)
-                  const SizedBox(height: 4),
-                if (player.position != null && player.position!.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: context.greenTint,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: context.greenBorder, width: 0.5),
-                    ),
-                    child: Text(
-                      player.position!,
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: context.primary),
-                    ),
-                  ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    if (player.position != null &&
+                        player.position!.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: context.greenTint,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: context.greenBorder, width: 0.5),
+                        ),
+                        child: Text(
+                          player.position!,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: context.primary),
+                        ),
+                      ),
+                    if (player.seatsReserved > 1)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF39C12).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: const Color(0xFFF39C12).withOpacity(0.4),
+                              width: 0.5),
+                        ),
+                        child: Text(
+                          AppLocalizations.of(context)
+                              .reservedNSpots(player.name, player.seatsReserved),
+                          style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFF39C12)),
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),

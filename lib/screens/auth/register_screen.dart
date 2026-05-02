@@ -46,6 +46,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (picked != null) setState(() => _birthDate = picked);
   }
 
+  // Human-readable display: "1 Feb 2000"
+  String _displayDate(DateTime d) {
+    const months = [
+      'Jan','Feb','Mar','Apr','May','Jun',
+      'Jul','Aug','Sep','Oct','Nov','Dec',
+    ];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
+  // ISO format for API: "2000-02-01"
   String _formatDate(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -189,7 +199,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               const SizedBox(width: 12),
                               Text(
                                 _birthDate != null
-                                    ? _formatDate(_birthDate!)
+                                    ? _displayDate(_birthDate!)
                                     : l.selectBirthDate,
                                 style: TextStyle(
                                   fontSize: 16,

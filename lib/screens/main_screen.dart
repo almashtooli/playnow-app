@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/notification_inbox_service.dart';
 import '../theme/app_theme.dart';
 import 'admin/admin_screen.dart';
+import 'friends/friends_screen.dart';
 import 'games/games_screen.dart';
 import 'home/home_screen.dart';
 import 'notifications/notifications_screen.dart';
@@ -28,6 +29,7 @@ class _MainScreenState extends State<MainScreen> {
     HomeScreen(),
     GamesScreen(),
     MyBookingsScreen(),
+    FriendsScreen(),
     NotificationsScreen(),
     ProfileScreen(),
   ];
@@ -109,6 +111,11 @@ class _MainScreenState extends State<MainScreen> {
               icon: const Icon(Icons.bookmark_outline),
               selectedIcon: const Icon(Icons.bookmark),
               label: l.tabBookings,
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.people_outline_rounded),
+              selectedIcon: const Icon(Icons.people_rounded),
+              label: l.tabFriends,
             ),
             NavigationDestination(
               icon: unread > 0

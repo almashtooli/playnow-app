@@ -57,15 +57,22 @@ class NotificationService {
   static void setLocaleAr(bool isAr) => _isArCached = isAr;
 
   static String _translateType(String type, bool isAr) => switch (type) {
-        'session_joined'      => isAr ? 'تأكيد الانضمام للجلسة' : 'Session Confirmed',
-        'player_joined'       => isAr ? 'لاعب جديد انضم' : 'Player Joined',
-        'session_cancelled'   => isAr ? 'تم إلغاء الجلسة' : 'Session Cancelled',
-        'match_request'       => isAr ? 'طلب مباراة جديد' : 'New Match Request',
-        'match_approved'      => isAr ? 'تمت الموافقة على المباراة' : 'Match Approved',
-        'match_cancelled'     => isAr ? 'تم إلغاء المباراة' : 'Match Cancelled',
-        'match_rescheduled'   => isAr ? 'اقتراح وقت جديد للمباراة' : 'Match Rescheduled',
-        'reschedule_accepted' => isAr ? 'تم قبول الوقت الجديد' : 'Reschedule Accepted',
-        'reschedule_rejected' => isAr ? 'تم رفض الوقت الجديد' : 'Reschedule Rejected',
+        'session_joined'      => isAr ? 'تأكيد الانضمام للجلسة'        : 'Session Confirmed',
+        'player_joined'       => isAr ? 'لاعب جديد انضم'               : 'Player Joined',
+        'session_cancelled'   => isAr ? 'تم إلغاء الجلسة'              : 'Session Cancelled',
+        'player_cancelled'    => isAr ? 'لاعب ألغى حجزه'               : 'Player Cancelled',
+        'match_request'       => isAr ? 'طلب مباراة جديد'              : 'New Match Request',
+        'match_approved'      => isAr ? 'تمت الموافقة على المباراة'    : 'Match Approved',
+        'match_cancelled'     => isAr ? 'تم إلغاء المباراة'            : 'Match Cancelled',
+        'match_rescheduled'   => isAr ? 'اقتراح وقت جديد للمباراة'    : 'Match Rescheduled',
+        'reschedule_accepted' => isAr ? 'تم قبول الوقت الجديد'         : 'Reschedule Accepted',
+        'reschedule_rejected' => isAr ? 'تم رفض الوقت الجديد'          : 'Reschedule Rejected',
+        'rate_session'        => isAr ? 'قيّم جلستك'                   : 'Rate Your Session',
+        'chat_message'        => isAr ? 'رسالة جديدة'                  : 'New Chat Message',
+        'friend_request'      => isAr ? 'طلب صداقة جديد'               : 'New Friend Request',
+        'friend_accepted'     => isAr ? 'تم قبول طلب صداقتك'           : 'Friend Request Accepted',
+        'session_invite'      => isAr ? 'دعوة لجلسة'                   : 'Session Invitation',
+        'dm_message'          => isAr ? 'رسالة مباشرة جديدة'          : 'New Direct Message',
         _ => '',
       };
 }

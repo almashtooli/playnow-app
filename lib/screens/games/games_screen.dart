@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/ui_helpers.dart';
 import '../../l10n/app_localizations.dart';
+import '../../models/friend_models.dart';
 import '../../models/session_models.dart';
 import '../../services/auth_service.dart';
+import '../../services/friend_service.dart';
 import '../../services/session_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/empty_error_states.dart';
@@ -155,9 +157,25 @@ class _GamesScreenState extends State<GamesScreen> {
             position: position.label,
           );
       if (mounted) {
-        UiHelpers.showSuccess(context, seats == 1
-            ? 'Spot reserved! See you on the pitch!'
-            : '$seats spots reserved! See you on the pitch!');
+        // Optimistic update: increment joinedPlayers by exact seats count
+        // so the UI is correct before the server refresh arrives.
+        final idx = _sessions.indexWhere((s) => s.id == session.id);
+        if (idx != -1) {
+          final updated = _sessions[idx].copyWith(
+            joinedPlayers: _sessions[idx].joinedPlayers + seats,
+            status: _sessions[idx].joinedPlayers + seats >=
+                    _sessions[idx].maxPlayers
+                ? 'full'
+                : 'open',
+          );
+          setState(() => _sessions[idx] = updated);
+        }
+
+        final l = AppLocalizations.of(context);
+        UiHelpers.showSuccess(
+          context,
+          seats == 1 ? l.spotReserved : '$seats ${l.spotsRemaining}',
+        );
         _load(silent: true);
       }
     } on ApiException catch (e) {
@@ -493,7 +511,174 @@ class _GamesScreenState extends State<GamesScreen> {
               ],
             ),
           ),
+          if (!isFull)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              child: OutlinedButton.icon(
+                onPressed: () => _showInviteSheet(session),
+                icon: const Icon(Icons.person_add_alt_1_rounded, size: 14),
+                label: Text(l.inviteFriends),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 36),
+                  side: BorderSide(color: context.greenBorder),
+                  foregroundColor: context.primary,
+                  textStyle: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showInviteSheet(Session session) async {
+    final auth = context.read<AuthService>();
+    if (!auth.isLoggedIn) {
+      UiHelpers.showWarning(context, 'Please log in to invite friends.');
+      return;
+    }
+
+    List<Friend> friends = [];
+    bool loadingFriends = true;
+    String? friendsError;
+
+    try {
+      final svc = context.read<FriendService>();
+      await svc.loadFriends();
+      friends = svc.friends.toList();
+    } catch (_) {
+      friendsError = 'Could not load friends.';
+    }
+    loadingFriends = false;
+
+    if (!mounted) return;
+
+    final l = AppLocalizations.of(context);
+    final selected = <int>{};
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.6,
+            maxChildSize: 0.9,
+            minChildSize: 0.3,
+            builder: (_, sc) => Column(
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: context.borderColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(l.selectFriendsToInvite,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 16)),
+                      ),
+                      if (selected.isNotEmpty)
+                        TextButton(
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            try {
+                              await context
+                                  .read<FriendService>()
+                                  .inviteToSession(
+                                      session.id, selected.toList());
+                              if (mounted) {
+                                UiHelpers.showSuccess(context, l.invitesSent);
+                              }
+                            } on ApiException catch (e) {
+                              if (mounted) {
+                                UiHelpers.showError(context, e.message);
+                              }
+                            }
+                          },
+                          child: Text(l.inviteFriends,
+                              style: TextStyle(
+                                  color: context.primary,
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: loadingFriends
+                      ? Center(
+                          child: CircularProgressIndicator(
+                              color: context.primary))
+                      : friendsError != null
+                          ? Center(child: Text(friendsError!))
+                          : friends.isEmpty
+                              ? Center(child: Text(l.noFriendsAvailable))
+                              : ListView.builder(
+                                  controller: sc,
+                                  itemCount: friends.length,
+                                  itemBuilder: (_, i) {
+                                    final f = friends[i];
+                                    final checked =
+                                        selected.contains(f.userId);
+                                    return CheckboxListTile(
+                                      value: checked,
+                                      onChanged: (v) => setSheetState(() {
+                                        if (v == true) {
+                                          selected.add(f.userId);
+                                        } else {
+                                          selected.remove(f.userId);
+                                        }
+                                      }),
+                                      secondary: CircleAvatar(
+                                        backgroundColor: context.greenTint,
+                                        backgroundImage: f.avatarUrl != null
+                                            ? NetworkImage(f.avatarUrl!)
+                                            : null,
+                                        child: f.avatarUrl == null
+                                            ? Text(
+                                                f.name.isNotEmpty
+                                                    ? f.name[0].toUpperCase()
+                                                    : '?',
+                                                style: TextStyle(
+                                                    color: context.primary,
+                                                    fontWeight:
+                                                        FontWeight.w800))
+                                            : null,
+                                      ),
+                                      title: Text(f.name,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600)),
+                                      subtitle: f.position != null
+                                          ? Text(f.position!,
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  color:
+                                                      context.textSecondary))
+                                          : null,
+                                      activeColor: context.primary,
+                                    );
+                                  },
+                                ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

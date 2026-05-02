@@ -20,7 +20,9 @@
       "Bash(python generate_v5.py)",
       "Bash(python -c ' *)",
       "Bash(python -c \"import docx; print\\('docx ok'\\)\")",
-      "Bash(python generate_visual_identity.py)"
+      "Bash(python generate_visual_identity.py)",
+      "Read(//d/Projects/PlayNow/**)",
+      "Bash(xargs -I {} basename {})"
     ]
   }
 }

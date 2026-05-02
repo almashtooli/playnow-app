@@ -11,8 +11,10 @@ import 'screens/landing_screen.dart';
 import 'services/auth_service.dart';
 import 'services/dashboard_service.dart';
 import 'services/match_booking_service.dart';
+import 'services/friend_service.dart';
 import 'services/notification_inbox_service.dart';
 import 'services/notification_service.dart';
+import 'services/rating_service.dart';
 import 'services/session_service.dart';
 import 'services/media_service.dart';
 import 'services/theme_service.dart';
@@ -33,6 +35,8 @@ void main() async {
         Provider(create: (_) => SessionService()),
         Provider(create: (_) => DashboardService()),
         Provider(create: (_) => MatchBookingService()),
+        Provider(create: (_) => RatingService()),
+        ChangeNotifierProvider(create: (_) => FriendService()),
         ChangeNotifierProvider(create: (_) => MediaService()),
         ChangeNotifierProvider(create: (_) => ThemeService()),
       ],

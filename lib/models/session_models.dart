@@ -33,6 +33,7 @@ class Session {
   final int joinedPlayers;
   final double pricePerPlayer;
   final String status; // session status (open/full/cancelled/completed)
+  final bool isJoined;
 
   Session({
     required this.id,
@@ -45,11 +46,31 @@ class Session {
     required this.joinedPlayers,
     required this.pricePerPlayer,
     required this.status,
+    this.isJoined = false,
   });
 
   int get remainingSpots => maxPlayers - joinedPlayers;
   bool get isFull => remainingSpots <= 0;
   bool get isOpen => status == 'open';
+
+  Session copyWith({
+    int? joinedPlayers,
+    String? status,
+    bool? isJoined,
+  }) =>
+      Session(
+        id: id,
+        pitchId: pitchId,
+        pitchName: pitchName,
+        venueName: venueName,
+        startsAt: startsAt,
+        endsAt: endsAt,
+        maxPlayers: maxPlayers,
+        joinedPlayers: joinedPlayers ?? this.joinedPlayers,
+        pricePerPlayer: pricePerPlayer,
+        status: status ?? this.status,
+        isJoined: isJoined ?? this.isJoined,
+      );
 
   // Standard response from GET /api/sessions
   factory Session.fromJson(Map<String, dynamic> json) => Session(
@@ -63,6 +84,7 @@ class Session {
     joinedPlayers: json['joinedPlayers'] ?? 0,
     pricePerPlayer: (json['pricePerPlayer'] ?? 0).toDouble(),
     status: json['status'] ?? 'open',
+    isJoined: json['isJoined'] ?? false,
   );
 
   // Response from GET /api/sessions/my-bookings

@@ -22,6 +22,16 @@ class _SessionPlayersScreenState extends State<SessionPlayersScreen> {
   bool _loading = true;
   bool _cancelled = false;
 
+  // True when cancellation is allowed (> 60 min before session start).
+  bool get _canCancelSession {
+    if (_cancelled) return false;
+    final now = DateTime.now();
+    if (!widget.session.startsAt.isAfter(now)) return false;
+    return widget.session.startsAt.difference(now).inMinutes > 60;
+  }
+
+  bool get _isSessionUpcoming => widget.session.startsAt.isAfter(DateTime.now());
+
   @override
   void initState() {
     super.initState();
@@ -104,15 +114,33 @@ class _SessionPlayersScreenState extends State<SessionPlayersScreen> {
       appBar: AppBar(
         title: Text(widget.session.pitchName),
         actions: [
-          if (!_cancelled)
-            TextButton.icon(
-              onPressed: _cancelSession,
-              icon: Icon(Icons.cancel_rounded, color: context.errorColor, size: 18),
-              label: Text(AppLocalizations.of(context).cancelSession,
-                  style: TextStyle(
-                      color: context.errorColor,
-                      fontWeight: FontWeight.w700)),
-            ),
+          if (!_cancelled && _isSessionUpcoming)
+            _canCancelSession
+                ? TextButton.icon(
+                    onPressed: _cancelSession,
+                    icon: Icon(Icons.cancel_rounded,
+                        color: context.errorColor, size: 18),
+                    label: Text(AppLocalizations.of(context).cancelSession,
+                        style: TextStyle(
+                            color: context.errorColor,
+                            fontWeight: FontWeight.w700)),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.lock_clock_rounded,
+                            size: 14, color: context.textHint),
+                        const SizedBox(width: 4),
+                        Text(
+                          AppLocalizations.of(context).cannotCancelWithin1Hour,
+                          style: TextStyle(
+                              fontSize: 11, color: context.textHint),
+                        ),
+                      ],
+                    ),
+                  ),
         ],
       ),
       body: Column(
@@ -194,10 +222,38 @@ class _SessionPlayersScreenState extends State<SessionPlayersScreen> {
                                         fontWeight: FontWeight.bold),
                                   ),
                                 ),
-                                title: Text(p.name,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600)),
-                                subtitle: Text(p.phone ?? AppLocalizations.of(context).noPhone),
+                                title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(p.name,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                                  if (p.seatsReserved > 1)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF39C12)
+                                            .withOpacity(0.12),
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                        border: Border.all(
+                                            color: const Color(0xFFF39C12)
+                                                .withOpacity(0.4),
+                                            width: 0.5),
+                                      ),
+                                      child: Text(
+                                        '${p.seatsReserved} spots',
+                                        style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFFF39C12)),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              subtitle: Text(p.phone ?? AppLocalizations.of(context).noPhone),
                                 trailing: isAttended
                                     ? Icon(Icons.check_circle,
                                         color: context.primary)

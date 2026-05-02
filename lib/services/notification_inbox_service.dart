@@ -6,13 +6,16 @@ class NotificationInboxService extends ChangeNotifier {
   List<AppNotification> _notifications = [];
   int _unreadCount = 0;
   bool _loading = false;
+  String? _error;
 
   List<AppNotification> get notifications => _notifications;
   int get unreadCount => _unreadCount;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> loadNotifications({int page = 1, int pageSize = 20}) async {
     _loading = true;
+    _error = null;
     notifyListeners();
     try {
       final json = await apiClient.get('/notifications', queryParams: {
@@ -22,9 +25,12 @@ class NotificationInboxService extends ChangeNotifier {
       final List items = json['items'] ?? [];
       _notifications = items.map((e) => AppNotification.fromJson(e)).toList();
       _unreadCount = json['unreadCount'] ?? 0;
+      _error = null;
     } catch (e) {
       debugPrint('NotificationInboxService.loadNotifications error: $e');
-      // keep stale data on error
+      if (_notifications.isEmpty) {
+        _error = e.toString().replaceAll('Exception: ', '');
+      }
     } finally {
       _loading = false;
       notifyListeners();
